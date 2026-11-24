@@ -39,6 +39,9 @@
   --veil: rgba(22, 20, 15, .78); --veil-strong: rgba(22, 20, 15, .92);
   color-scheme: dark;
 }
+:root { --c1: #B4502A; --c2: #1D70B8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --c1: #D2703F; --c2: #3A88D6; } }
+:root[data-theme="dark"] { --c1: #D2703F; --c2: #3A88D6; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
@@ -115,6 +118,17 @@ details.tbl summary { cursor: pointer; color: var(--muted); }
 details.tbl table { width: 100%; border-collapse: collapse; margin-top: 8px; font-variant-numeric: tabular-nums; }
 details.tbl td, details.tbl th { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; margin: 6px 0 2px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 22px; height: 0; border-top: 3px solid var(--c1); display: inline-block; }
+.legend span + span i { border-top-color: var(--c2); border-top-style: dashed; }
+.chart .l1 { fill: none; stroke: var(--c1); stroke-width: 2; stroke-linejoin: round; }
+.chart .l2 { fill: none; stroke: var(--c2); stroke-width: 2; stroke-dasharray: 6 4; stroke-linejoin: round; }
+.chart .d1 { fill: var(--c1); stroke: var(--surface); stroke-width: 2; }
+.chart .d2 { fill: var(--c2); stroke: var(--surface); stroke-width: 2; }
+.duelrow { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.duelrow .w { font-weight: 700; }
+.field-inline { width: 100%; min-height: 46px; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; font-size: 16px; margin-bottom: 10px; }
 .custom { display: flex; gap: 12px; margin-top: 10px; }
 .custom label { flex: 1; font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
 .custom input { width: 100%; min-height: 46px; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px 12px; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -224,6 +238,8 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
     <ul class="hist" id="dailyHist" style="margin-top:12px"></ul>
   </section>
 
+  <section class="card" id="duelCard"></section>
+
   <section class="card">
     <h2>Opérations <button class="link-btn" id="allOps" type="button">Tout cocher</button></h2>
     <div class="chips" id="ops"></div>
@@ -255,9 +271,12 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
       <button class="chip" id="optSound" type="button" aria-pressed="true">Son</button>
       <button class="chip" id="optWeak" type="button" aria-pressed="false">Insister sur mes points faibles</button>
     </div>
+    <p class="sub">Thème</p>
+    <div class="seg" id="themes"></div>
   </section>
 
   <button class="btn" id="start" type="button">Commencer</button>
+  <button class="btn secondary" id="psyBtn" type="button" style="margin-top:8px"></button>
   <p class="record" id="recordLine"></p>
 
   <section class="card" id="weakCard" style="margin-top:16px" hidden>
@@ -359,7 +378,8 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
   </section>
   <section class="card" id="shareCard" hidden>
     <h2>Défi du jour</h2>
-    <p class="level-desc" id="shareStreak" style="margin:0 0 10px"></p>
+    <p class="level-desc" id="shareStreak" style="margin:0 0 6px"></p>
+    <p class="level-desc" id="duelRes" style="margin:0 0 10px;color:var(--fg);font-weight:600"></p>
     <pre class="sharetext" id="shareText"></pre>
     <button class="btn" id="shareBtn" type="button">Partager mon résultat</button>
   </section>
@@ -603,6 +623,65 @@ const GEN = {
     return { html, ans: total, long: true, why };
   },
   /* Égalités à trou, façon PSY0 : 24 ÷ 2 = 2 × ? */
+  /* Conversions et grandeurs (aviation) : la réponse est acceptée à quelques % près, comme en calcul mental réel */
+  conv(l) {
+    const r1 = (x) => Math.round(x * 10) / 10;
+    // t = tolérance relative, ta = tolérance absolue minimale ; exact = pas de tolérance
+    const Q = (left, unit, exact, why, o) => {
+      o = o || {}; const ans = exact >= 20 ? Math.round(exact) : r1(exact);
+      const tol = o.exact ? 0 : Math.max((o.t || .02) * exact, o.ta || .05);
+      return { html: `${left} = ${SLOT} ${unit}`, ans, tol, hasSlot: true,
+        hint: o.exact ? "exact" : `à ${Math.round((o.t || .02) * 100)} % près`,
+        why: why + (o.exact ? "" : ` Valeur exacte : ${fmt(ans)} (réponse acceptée à ${Math.round((o.t || .02) * 100)} % près).`) };
+    };
+    const T0 = [
+      () => { const n = 10 * rnd(1, 12); return Q(`${n} USG`, "L", n * 3.785, `1 USG ≈ 3,8 L. ${n} × 3,8 = ${fmt(n * 3.8)}.`); },
+      () => { const n = 10 * rnd(3, 40); return Q(`${n} L`, "USG", n / 3.785, `1 USG ≈ 3,8 L, donc on divise par 3,8 (ou par 4 puis on ajoute 5 %). ${n} ÷ 3,8 ≈ ${fmt(r1(n / 3.8))}.`); },
+      () => { const n = 10 * rnd(2, 30); return Q(`${n} kg`, "lb", n * 2.2046, `1 kg ≈ 2,2 lb : on double puis on ajoute 10 %. ${n} × 2 = ${n * 2}, + ${fmt(n * .2)} = ${fmt(n * 2.2)}.`); },
+      () => { const n = 11 * rnd(2, 30); return Q(`${n} lb`, "kg", n / 2.2046, `1 kg ≈ 2,2 lb. ${n} ÷ 2,2 = ${fmt(r1(n / 2.2))}.`); },
+      () => { const n = 10 * rnd(2, 30); return Q(`${n} NM`, "km", n * 1.852, `1 NM ≈ 1,85 km : presque 2, moins 7 %. ${n} × 1,85 = ${fmt(r1(n * 1.85))}.`); },
+      () => { const n = 10 * rnd(3, 40); return Q(`${n} km`, "NM", n / 1.852, `1 NM ≈ 1,85 km. ${n} ÷ 1,85 ≈ ${fmt(r1(n / 1.85))}.`); },
+      () => { const h = pick([1.5, 2.5, 3.5, 0.75, 1.25, 2.25, 4.5]); return Q(`${fmt(h)} h`, "min", h * 60, `${fmt(h)} × 60 = ${fmt(h * 60)}.`, { exact: true }); },
+      () => { const m = 6 * rnd(5, 40); return Q(`${m} min`, "h", m / 60, `${m} ÷ 60 = ${fmt(m / 60)}.`, { exact: true }); }
+    ];
+    const T1 = [
+      () => { const n = 100 * rnd(2, 50); return Q(`${fmt(n)} ft`, "m", n * .3048, `1 ft ≈ 0,3 m. ${fmt(n)} × 0,3 = ${fmt(n * .3)}.`, { t: .03 }); },
+      () => { const n = 100 * rnd(2, 40); return Q(`${fmt(n)} m`, "ft", n * 3.2808, `1 m ≈ 3,3 ft. ${fmt(n)} × 3,3 = ${fmt(n * 3.3)}.`, { t: .03 }); },
+      () => { const n = 10 * rnd(5, 30); return Q(`${n} kt`, "km/h", n * 1.852, `1 kt ≈ 1,85 km/h : presque × 2, moins 7 %. ${n} × 1,85 = ${fmt(r1(n * 1.85))}.`); },
+      () => { const n = 10 * rnd(10, 50); return Q(`${n} km/h`, "kt", n / 1.852, `1 kt ≈ 1,85 km/h. ${n} ÷ 1,85 ≈ ${fmt(r1(n / 1.85))}.`); },
+      () => { const c = 5 * rnd(-6, 24), f = c * 9 / 5 + 32; return Q(`${c} °C`, "°F", f, `× 1,8 puis + 32 : ${c} × 1,8 = ${fmt(c * 1.8)}, + 32 = ${f}.`, { exact: true }); },
+      () => { const c = 5 * rnd(-6, 24), f = c * 9 / 5 + 32; return Q(`${f} °F`, "°C", c, `On retire 32 puis on divise par 1,8 : ${f} ${MINUS} 32 = ${f - 32}, ÷ 1,8 = ${c}.`, { exact: true }); },
+      () => { const n = pick([100, 200, 250, 300, 400, 500]); return Q(`${n} m/s`, "km/h", n * 3.6, `× 3,6 : ${n} × 3,6 = ${fmt(n * 3.6)}.`, { exact: true }); }
+    ];
+    const T2 = [
+      () => { const n = 5 * rnd(8, 40); return Q(`${n} USG d'avgas`, "kg", n * 2.725, `1 USG ≈ 3,8 L et 1 L d'avgas ≈ 0,72 kg, donc 1 USG ≈ 2,7 kg. ${n} × 2,7 = ${fmt(r1(n * 2.7))}.`); },
+      () => { const n = 10 * rnd(5, 40); return Q(`${n} L d'avgas`, "kg", n * .72, `1 L d'avgas ≈ 0,72 kg. ${n} × 0,72 = ${fmt(r1(n * .72))}.`); },
+      () => { const n = 10 * rnd(5, 30); return Q(`${n} kg d'avgas`, "L", n / .72, `Densité 0,72 : on divise par 0,72, donc on multiplie par 1,4. ${n} × 1,4 = ${fmt(n * 1.4)}.`); },
+      () => { const c = pick([30, 36, 40, 45, 48, 55]), h = pick([1.5, 2, 2.5, 3, 3.5, 4.5]); return Q(`Conso ${c} L/h pendant ${fmt(h)} h : carburant`, "L", c * h, `${c} × ${fmt(h)} = ${fmt(c * h)}.`, { exact: true }); },
+      () => { const c = pick([30, 36, 42, 48, 54, 60]), m = 10 * rnd(6, 24), f = c * m / 60; return Q(`${f} L à ${c} L/h : autonomie`, "min", m, `${f} ÷ ${c} = ${fmt(r1(f / c))} h, × 60 = ${m} min.`, { exact: true }); },
+      () => { const v = pick([60, 90, 120, 150]), m = 6 * rnd(5, 40), d = v * m / 60; return Q(`${d} NM à ${v} kt : durée`, "min", m, `Temps = distance ÷ vitesse × 60 : ${d} ÷ ${v} × 60 = ${m} min.`, { exact: true }); },
+      () => { const v = pick([60, 90, 120, 150]), m = 6 * rnd(5, 40), d = v * m / 60; return Q(`${d} NM en ${m} min : vitesse`, "kt", v, `Vitesse = distance ÷ temps × 60 : ${d} ÷ ${m} × 60 = ${v} kt.`, { exact: true }); }
+    ];
+    const T3 = [
+      () => { const n = rnd(975, 1040); return Q(`${n} hPa`, "inHg", n * .02953, `1 inHg ≈ 33,86 hPa. ${n} ÷ 33,86 ≈ ${fmt(r1(n * .02953))}. Repère : 1013 hPa = 29,92 inHg.`, { t: .004, ta: .1 }); },
+      () => { const p = rnd(29, 30) + rnd(0, 9) / 10, n = Math.round(p * 10) / 10; return Q(`${fmt(n)} inHg`, "hPa", n * 33.8639, `On repart de 29,92 inHg = 1013 hPa, et 0,1 inHg ≈ 3,4 hPa. Écart de ${fmt(r1(n - 29.92))} inHg ≈ ${fmt(r1((n - 29.92) * 33.86))} hPa.`, { t: .004, ta: 4 }); },
+      () => { const n = 5 * rnd(3, 40); return Q(`FL ${n}`, "ft", n * 100, `Un niveau de vol est l'altitude en centaines de pieds : ${n} × 100 = ${fmt(n * 100)}.`, { exact: true }); },
+      () => { const n = 100 * rnd(2, 15); return Q(`${fmt(n)} ft/min`, "m/s", n / 196.85, `1 m/s ≈ 197 ft/min (environ 200). ${fmt(n)} ÷ 200 ≈ ${fmt(r1(n / 200))}.`, { t: .04 }); },
+      () => { const g = 10 * rnd(8, 16); return Q(`Pente 3° à ${g} kt de vitesse sol : taux de descente`, "ft/min", g * 5.3, `Règle : taux de descente (ft/min) ≈ 5 × vitesse sol pour 3°. ${g} × 5 = ${g * 5}.`, { t: .06 }); },
+      () => { const d = 10 * rnd(2, 12), a = rnd(2, 8); return Q(`Écart de ${a}° à ${d} NM : décalage latéral`, "NM", d * a / 57.3, `Règle du 1 sur 60 : ${a}° à 60 NM décalent de ${a} NM. À ${d} NM : ${a} × ${d} ÷ 60 = ${fmt(r1(a * d / 60))}.`, { t: .05, ta: .15 }); },
+      () => { const n = 10 * rnd(8, 40); return Q(`${n} USG`, "lb", n * 6.01, `Pour l'avgas, 1 USG ≈ 6 lb. ${n} × 6 = ${fmt(n * 6)}.`); }
+    ];
+    const T4 = [
+      () => { const u = rnd(40, 120), c = pick([24, 28, 32, 36, 40]); return Q(`${u} USG à ${c} L/h : autonomie`, "min", u * 3.785 / c * 60, `${u} USG × 3,8 = ${fmt(r1(u * 3.8))} L. ${fmt(r1(u * 3.8))} ÷ ${c} = ${fmt(r1(u * 3.8 / c))} h, × 60 = ${fmt(Math.round(u * 3.8 / c * 60))} min.`, { t: .03 }); },
+      () => { const d = 10 * rnd(20, 60), v = pick([90, 100, 110, 120, 135, 150]); return Q(`${d} km à ${v} kt : durée`, "min", d / 1.852 / v * 60, `${d} km ÷ 1,85 ≈ ${fmt(r1(d / 1.85))} NM. ${fmt(r1(d / 1.85))} ÷ ${v} × 60 = ${fmt(Math.round(d / 1.85 / v * 60))} min.`, { t: .03 }); },
+      () => { const w = 5 * rnd(3, 10), a = pick([30, 45, 60]), k = { 30: .5, 45: .7, 60: .9 }[a]; return Q(`Vent ${w} kt à ${a}° de la piste : composante de travers`, "kt", w * Math.sin(a * Math.PI / 180), `Règle de l'horloge : 30° = ½, 45° = ¾ (0,7), 60° = presque 1 (0,9). ${w} × ${k} = ${fmt(r1(w * k))}.`, { t: .05 }); },
+      () => { const n = 10 * rnd(30, 120); return Q(`${n} km/h`, "m/s", n / 3.6, `÷ 3,6 : ${n} ÷ 3,6 = ${fmt(r1(n / 3.6))}.`, { t: .03 }); },
+      () => { const l = 10 * rnd(20, 90); return Q(`${l} L d'avgas`, "lb", l * .72 * 2.2046, `${l} × 0,72 = ${fmt(r1(l * .72))} kg, × 2,2 = ${fmt(r1(l * .72 * 2.2))} lb.`, { t: .03 }); },
+      () => { const n = 100 * rnd(10, 60); return Q(`${fmt(n)} ft`, "m", n * .3048, `${fmt(n)} × 0,3 = ${fmt(n * .3)}, puis on ajoute 1,6 % : ${fmt(r1(n * .3048))}.`, { t: .015 }); },
+      () => { const g = 10 * rnd(9, 16), a = pick([2.5, 3, 3.5, 4]); return Q(`Pente ${fmt(a)}° à ${g} kt : taux de descente`, "ft/min", g * a * 1.77, `Règle : taux ≈ 5 × vitesse sol × (pente ÷ 3). ${g} × 5 × ${fmt(r1(a / 3))} ≈ ${fmt(Math.round(g * 5 * a / 3))}.`, { t: .06 }); }
+    ];
+    return pick([T0, T1, T2, T3, T4][l])();
+  },
   eq(l) {
     const { L, R, V } = eqCore(l);
     const hideSide = rng() < .7 ? 1 : 0, hidePos = rng() < .5 ? 0 : 2;
@@ -687,14 +766,15 @@ const OPS = [
   { id: "frac", label: "Fractions", sym: "½" },
   { id: "pct", label: "Pourcentages", sym: "%" },
   { id: "dec", label: "Décimaux", sym: "," },
-  { id: "sq", label: "Carrés", sym: "x²" }
+  { id: "sq", label: "Carrés", sym: "x²" },
+  { id: "conv", label: "Conversions aviation", sym: "ft" }
 ];
 const OP_BY_ID = Object.fromEntries(OPS.map((o) => [o.id, o]));
 
 /* ---------- Réglages ---------- */
 const TIMERS = [{ v: 0, l: "Sans" }, { v: 60, l: "1 min" }, { v: 120, l: "2 min" }, { v: 300, l: "5 min" }];
 const COUNTS = [{ v: 10, l: "10" }, { v: 20, l: "20" }, { v: 50, l: "50" }, { v: 0, l: "∞" }];
-const settings = Object.assign({ ops: ["add", "sub", "mul", "div"], level: 1, timer: 60, count: 20, custom: false, sound: true, weak: false }, store.get("settings", {}));
+const settings = Object.assign({ ops: ["add", "sub", "mul", "div"], level: 1, timer: 60, count: 20, custom: false, sound: true, weak: false, theme: "auto" }, store.get("settings", {}));
 settings.ops = settings.ops.filter((o) => OP_BY_ID[o]);
 
 function segment(el, items, key, onChange) {
@@ -771,6 +851,9 @@ function renderProgress() {
   $("progTable").innerHTML = `<tr><th>Date</th><th>Précision</th><th>s / calcul</th></tr>` + hist.map((x, i) => `<tr><td>${labs[i]}</td><td>${acc[i]} %</td><td>${fmt(spd[i])}</td></tr>`).reverse().join("");
 }
 
+function applyTheme() { if (settings.theme === "light" || settings.theme === "dark") document.documentElement.setAttribute("data-theme", settings.theme); else document.documentElement.removeAttribute("data-theme"); }
+applyTheme();
+
 function renderOps() {
   const box = $("ops"); box.innerHTML = "";
   OPS.forEach((o) => {
@@ -796,6 +879,7 @@ function renderHome() {
   renderOps();
   segment($("levels"), LEVELS.map((x) => ({ v: x.id, l: x.name })), "level", refreshHome);
   renderTimers();
+  segment($("themes"), [{ v: "auto", l: "Auto" }, { v: "light", l: "Clair" }, { v: "dark", l: "Sombre" }], "theme", applyTheme);
   segment($("counts"), COUNTS, "count", refreshHome);
   refreshHome();
 }
@@ -806,13 +890,14 @@ function refreshHome() {
   $("opsWarn").hidden = !none; $("start").disabled = none;
   $("optSound").setAttribute("aria-pressed", String(settings.sound !== false));
   $("optWeak").setAttribute("aria-pressed", String(!!settings.weak));
+  $("psyBtn").textContent = "Séance type PSY0 · " + fmtTime((settings.timer || 600) * 1000);
   renderDaily(); renderWeak(); renderProgress();
   const r = store.get("records", {})[recordKey()];
   $("recordLine").textContent = r ? "Record avec ces réglages : " + describeRecord(r) : "";
   const h = store.get("history", []);
   $("histCard").hidden = !h.length;
   $("hist").innerHTML = h.slice(0, 5).map((s) =>
-    `<li><span>${s.daily ? "Défi du jour" : LEVELS[s.level].name + " · " + s.ops.map((o) => OP_BY_ID[o] ? OP_BY_ID[o].sym : "").join(" ")}</span><span class="num">${s.correct}/${s.total} <span class="when">· ${new Date(s.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span></span></li>`).join("");
+    `<li><span>${s.daily ? "Défi du jour" : s.psy0 ? "Séance PSY0 · " + LEVELS[s.level].name : LEVELS[s.level].name + " · " + s.ops.map((o) => OP_BY_ID[o] ? OP_BY_ID[o].sym : "").join(" ")}</span><span class="num">${s.correct}/${s.total} <span class="when">· ${new Date(s.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span></span></li>`).join("");
 }
 
 /* ---------- Records & historique ---------- */
@@ -960,6 +1045,133 @@ $("dailyBtn").onclick = () => startGame(true);
 $("dailyShare").onclick = () => { const day = dateKey(), e = store.get("daily", {})[day]; if (e) shareResult(shareTextFor(day, e), $("dailyShare")); };
 $("shareBtn").onclick = () => shareResult($("shareText").textContent, $("shareBtn"));
 
+/* ---------- Duel entre amis : résultats du défi partagés via Firebase ---------- */
+const FB_CONFIG = { apiKey: "AIzaSyAhotRrKVnNX-2HDECwwgSey5KGA6Zt-7w", authDomain: "bastide-83490.firebaseapp.com", projectId: "bastide-83490", storageBucket: "bastide-83490.firebasestorage.app", messagingSenderId: "484222049869", appId: "1:484222049869:web:d05828eb09c74a3d6cc604" };
+let fb = null, duel = store.get("duel", null), duelDocs = [], duelErr = "", duelUnsub = null, duelDraft = "", pendingRoom = null, mineSynced = false;
+const validRoom = (c) => typeof c === "string" && /^[a-z0-9]{16,40}$/.test(c);
+{ const m = location.hash.match(/(?:^#|&)d=([a-z0-9]+)/); if (m && validRoom(m[1])) pendingRoom = m[1]; }
+function newId(n) { const a = "abcdefghijkmnopqrstuvwxyz23456789", r = new Uint8Array(n); crypto.getRandomValues(r); return Array.from(r, (x) => a[x % a.length]).join(""); }
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+async function loadFb() {
+  if (fb) return fb;
+  const A = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+  const F = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const app = A.initializeApp(FB_CONFIG, "calcul");
+  const db = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) });
+  return (fb = { db, fs: F });
+}
+async function duelConnect() {
+  if (!duel) return;
+  try {
+    const { db, fs } = await loadFb();
+    if (duelUnsub) duelUnsub();
+    duelUnsub = fs.onSnapshot(fs.collection(db, "duels", duel.room, "results"),
+      (snap) => { duelDocs = snap.docs.map((d) => d.data()); duelErr = ""; if (!mineSynced) { mineSynced = true; syncMine(); } renderDuel(); },
+      (err) => { duelErr = err && err.code === "permission-denied" ? "rules" : "net"; renderDuel(); });
+  } catch (e) { duelErr = "net"; renderDuel(); }
+}
+async function pushDuel(day, e) {
+  if (!duel) return;
+  try {
+    const { db, fs } = await loadFb();
+    await fs.setDoc(fs.doc(db, "duels", duel.room, "results", `${day}_${duel.pid}`), { day, pid: duel.pid, name: duel.name, correct: e.correct, total: e.total, ms: Math.round(e.ms), at: Date.now() });
+  } catch (err) { /* déjà envoyé, ou pas de réseau : la file hors ligne s'en charge */ }
+}
+function syncMine() { const d = store.get("daily", {}); Object.keys(d).forEach((day) => { if (!duelDocs.some((r) => r.day === day && r.pid === duel.pid)) pushDuel(day, d[day]); }); }
+function joinDuel(room, name) {
+  name = (name || "").trim().slice(0, 20); if (!name) return false;
+  const pid = store.get("pid", null) || newId(10); store.set("pid", pid);
+  duel = { room, name, pid }; store.set("duel", duel); pendingRoom = null; duelDocs = []; duelErr = ""; mineSynced = false;
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  duelConnect(); renderDuel(); return true;
+}
+function duelModel() {
+  const me = duel.pid, by = {}, names = { [me]: duel.name }, order = [me];
+  duelDocs.slice().sort((a, b) => a.at - b.at).forEach((r) => { (by[r.day] = by[r.day] || {})[r.pid] = r; if (!names[r.pid] || r.pid !== me) names[r.pid] = r.name; if (!order.includes(r.pid)) order.push(r.pid); });
+  const other = order[1] || null, days = Object.keys(by).sort();
+  const cmp = days.filter((d) => other && by[d][me] && by[d][other]).map((d) => {
+    const a = by[d][me], b = by[d][other], diff = a.correct - b.correct;
+    return { day: d, a, b, diff, win: diff > 0 ? "me" : diff < 0 ? "other" : "draw" };
+  });
+  return { me, other, names, by, cmp, wins: { me: cmp.filter((x) => x.win === "me").length, other: cmp.filter((x) => x.win === "other").length, draw: cmp.filter((x) => x.win === "draw").length } };
+}
+function duelToday(m, short) {
+  const t = dateKey(), mine = m.by[t] && m.by[t][m.me], theirs = m.other && m.by[t] && m.by[t][m.other], on = m.other ? m.names[m.other] : "ton ami";
+  if (mine && theirs) {
+    const d = mine.correct - theirs.correct;
+    return d === 0 ? `Égalité parfaite aujourd'hui : ${mine.correct} partout.` : `${d > 0 ? "Tu gagnes" : esc(on) + " gagne"} aujourd'hui : ${mine.correct} contre ${theirs.correct} (${d > 0 ? "+" : MINUS}${Math.abs(d)}).`;
+  }
+  if (mine) return `Ton score est envoyé. La comparaison apparaîtra dès que ${esc(on)} aura fini son défi.`;
+  if (theirs) return short ? "" : `${esc(on)} a déjà fini son défi. À toi de jouer !`;
+  return short ? "" : "Joue le défi du jour : la comparaison se lance quand vous avez tous les deux fini.";
+}
+function duelChart(m) {
+  const rows = m.cmp.slice(-20); if (rows.length < 2) return `<p class="level-desc">La courbe apparaîtra après 2 défis joués tous les deux.</p>`;
+  const A = rows.map((r) => r.a.correct), B = rows.map((r) => r.b.correct), n = rows.length, W = 320, H = 140, L = 30, R = 44, T = 14, Bt = 22;
+  const hi = Math.max(10, Math.ceil(Math.max(...A, ...B) * 1.1 / 5) * 5), lo = 0;
+  const x = (i) => L + i * (W - L - R) / (n - 1), y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - Bt);
+  const pts = (arr) => arr.map((v, i) => x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+  const grid = [0, hi / 2, hi].map((v) => `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text class="gt" x="${L - 6}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end">${Math.round(v)}</text>`).join("");
+  const la = y(A[n - 1]), lb = y(B[n - 1]), gap = Math.abs(la - lb) < 11, ya = la + (gap && la <= lb ? -6 : 3.5), yb = lb + (gap && lb < la ? -6 : 3.5);
+  const nm = (p) => esc((m.names[p] || "?").slice(0, 7));
+  const lab = rows.map((r) => fmtDay(r.day));
+  return `<div class="legend"><span><i></i>${esc(m.names[m.me])}</span><span><i></i>${esc(m.names[m.other])}</span></div>
+    <div class="readout" id="roDuel"></div>
+    <div class="chart" id="chDuel"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bonnes réponses par défi, ${esc(m.names[m.me])} contre ${esc(m.names[m.other])}">${grid}
+      <line class="cross" y1="${T}" y2="${H - Bt}" x1="0" x2="0" hidden/>
+      <polyline class="l2" points="${pts(B)}"/><polyline class="l1" points="${pts(A)}"/>
+      ${B.map((v, i) => `<circle class="d2" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4"/>`).join("")}${A.map((v, i) => `<circle class="d1" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4"/>`).join("")}
+      <text class="gt" x="${x(n - 1) + 8}" y="${ya.toFixed(1)}">${nm(m.me)}</text><text class="gt" x="${x(n - 1) + 8}" y="${yb.toFixed(1)}">${nm(m.other)}</text>
+      <text class="xt" x="${L}" y="${H - 6}">${lab[0]}</text><text class="xt" x="${W - R}" y="${H - 6}" text-anchor="end">${lab[n - 1]}</text></svg></div>`;
+}
+function wireDuelChart(m) {
+  const svg = document.querySelector("#chDuel svg"), ro = $("roDuel"); if (!svg || !ro) return;
+  const rows = m.cmp.slice(-20), n = rows.length, W = 320, L = 30, R = 44, cross = svg.querySelector(".cross");
+  const show = (i) => `${fmtDay(rows[i].day)} : ${esc(m.names[m.me])} ${rows[i].a.correct} · ${esc(m.names[m.other])} ${rows[i].b.correct}`;
+  const last = () => { ro.innerHTML = "Dernier défi : " + show(n - 1).replace(/^[^:]*: /, ""); cross.setAttribute("hidden", ""); };
+  const at = (e) => { const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W, i = Math.max(0, Math.min(n - 1, Math.round((px - L) / ((W - L - R) / (n - 1))))), cx = L + i * (W - L - R) / (n - 1); cross.removeAttribute("hidden"); cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); ro.innerHTML = show(i); };
+  svg.addEventListener("pointermove", at); svg.addEventListener("pointerdown", at); svg.addEventListener("pointerleave", last); last();
+}
+function renderDuel() {
+  const box = $("duelCard"); if (!box) return;
+  const inviteUrl = () => location.href.split(/[?#]/)[0].replace(/index\.html$/, "") + "#d=" + duel.room;
+  if (pendingRoom && (!duel || duel.room !== pendingRoom)) {
+    box.innerHTML = `<h2>Duel entre amis</h2><p class="level-desc" style="margin:0 0 10px">Un ami t'invite à comparer vos défis du jour.${duel ? " Tu quitteras ton duel actuel." : ""}</p>
+      <input class="field-inline" id="duelName" maxlength="20" placeholder="Ton pseudo" value="${esc(duelDraft)}" autocomplete="off"><button class="btn" data-a="join" type="button">Rejoindre le duel</button>`;
+    return;
+  }
+  if (!duel) {
+    box.innerHTML = `<h2>Duel entre amis</h2><p class="level-desc" style="margin:0 0 10px">Joue le défi du jour avec un ami : quand vous avez tous les deux fini, l'appli compare vos scores et garde l'historique.</p>
+      <input class="field-inline" id="duelName" maxlength="20" placeholder="Ton pseudo" value="${esc(duelDraft)}" autocomplete="off"><button class="btn" data-a="create" type="button">Créer un duel</button>`;
+    return;
+  }
+  const m = duelModel();
+  const status = duelErr === "rules" ? "La base de données n'accepte pas encore les duels (règles Firebase à publier). Tes résultats restent sur ce téléphone et partiront ensuite."
+    : duelErr === "net" ? "Hors ligne : la comparaison reviendra avec le réseau." : duelToday(m);
+  const who = (r) => r.win === "me" ? esc(m.names[m.me]) : r.win === "other" ? esc(m.names[m.other]) : "Égalité";
+  box.innerHTML = `<h2>Duel · ${esc(duel.name)}${m.other ? " contre " + esc(m.names[m.other]) : ""} <button class="link-btn" data-a="leave" type="button">Quitter</button></h2>
+    <p class="level-desc" style="margin:0 0 10px;color:var(--fg)">${status}</p>
+    ${m.other ? "" : `<button class="btn secondary" data-a="invite" type="button" style="min-height:46px;font-size:15px">Inviter un ami</button>`}
+    ${m.other && m.cmp.length ? `<div class="duelrow" style="margin:4px 0 6px"><span>Victoires</span><span class="num"><b>${esc(m.names[m.me])} ${m.wins.me}</b> · ${esc(m.names[m.other])} ${m.wins.other}${m.wins.draw ? " · égalités " + m.wins.draw : ""}</span></div>` : ""}
+    ${m.other ? duelChart(m) : ""}
+    ${m.cmp.length ? `<p class="sub">Historique des comparaisons</p><ul class="hist">${m.cmp.slice().reverse().slice(0, 8).map((r) => `<li><span>${fmtDay(r.day)} · <span class="w">${who(r)}</span></span><span class="num">${r.a.correct} – ${r.b.correct}</span></li>`).join("")}</ul>
+      <details class="tbl"><summary>Voir les chiffres</summary><table><tr><th>Jour</th><th>${esc(m.names[m.me])}</th><th>${esc(m.names[m.other])}</th></tr>${m.cmp.slice().reverse().map((r) => `<tr><td>${fmtDay(r.day)}</td><td>${r.a.correct}/${r.a.total}</td><td>${r.b.correct}/${r.b.total}</td></tr>`).join("")}</table></details>` : ""}
+    ${m.other ? `<button class="link-btn" data-a="invite" type="button" style="margin-top:10px">Réinviter / partager le lien du duel</button>` : ""}`;
+  box.dataset.invite = inviteUrl();
+  wireDuelChart(m);
+  const rs = $("duelRes"); if (rs) rs.textContent = duelErr ? "" : duelToday(m, false);
+}
+$("duelCard").addEventListener("input", (e) => { if (e.target.id === "duelName") duelDraft = e.target.value; });
+$("duelCard").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const a = b.dataset.a, name = ($("duelName") || {}).value;
+  if (a === "create") { if (!joinDuel(newId(20), name)) $("duelName").focus(); }
+  else if (a === "join") { if (!joinDuel(pendingRoom, name)) $("duelName").focus(); }
+  else if (a === "invite") shareResult("Rejoins mon duel de calcul mental : " + $("duelCard").dataset.invite, b);
+  else if (a === "leave") { if (confirm("Quitter ce duel ? Tes résultats déjà envoyés restent visibles pour ton ami.")) { if (duelUnsub) duelUnsub(); duelUnsub = null; duel = null; duelDocs = []; store.set("duel", null); renderDuel(); } }
+});
+window.addEventListener("online", () => { if (duel) duelConnect(); });
+
 /* ---------- Sons (synthétisés, aucun fichier) ---------- */
 const sfx = {
   ctx: null,
@@ -984,14 +1196,17 @@ function show(id) {
   document.body.classList.toggle("playing", id === "game");
   window.scrollTo(0, 0);
 }
-function startGame(daily) {
-  daily = daily === true;
-  if (daily ? store.get("daily", {})[dateKey()] : !settings.ops.length) return;
+const PSY0_OPS = ["chain", "chain", "eq", "eq", "intrus", "add", "sub", "mul", "mul", "div", "frac", "pct"];
+function startGame(kind) {
+  const daily = kind === true, psy0 = kind === "psy0";
+  if (daily ? store.get("daily", {})[dateKey()] : !psy0 && !settings.ops.length) return;
   sfx.init();
-  const base = { items: [], correct: 0, start: performance.now(), input: "", q: null, waiting: false, last: "" };
+  const base = { items: [], correct: 0, start: performance.now(), input: "", q: null, waiting: false, last: "", daily: false, psy0: false, weak: false, rng: null };
   G = daily
-    ? Object.assign(base, { daily: true, ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, weak: false, rng: mulberry32(seedOf("calcul-mental|" + dateKey())) })
-    : Object.assign(base, { daily: false, ops: [...settings.ops], level: settings.level, timer: settings.timer, count: settings.timer ? 0 : settings.count, weak: !!settings.weak, rng: null });
+    ? Object.assign(base, { daily: true, ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, rng: mulberry32(seedOf("calcul-mental|" + dateKey())) })
+    : psy0
+      ? Object.assign(base, { psy0: true, ops: [...PSY0_OPS], level: settings.level, timer: settings.timer || 600, count: 0 })
+      : Object.assign(base, { ops: [...settings.ops], level: settings.level, timer: settings.timer, count: settings.timer ? 0 : settings.count, weak: !!settings.weak });
   $("sTimeBox").hidden = false;
   $("timebar").hidden = !G.timer;
   $("sProgLbl").textContent = G.count ? "Calcul" : "Calculs";
@@ -1030,7 +1245,7 @@ function nextQuestion() {
     $("question").innerHTML = '<div class="picks">' + q.items.map((it, i) =>
       `<button type="button" class="pick" data-i="${i}" aria-pressed="false"><span class="n">${i + 1}</span><span>${it.html}</span></button>`).join("") + "</div>";
   } else {
-    $("kind").textContent = OP_BY_ID[op].label;
+    $("kind").textContent = OP_BY_ID[op].label + (q.hint ? " · " + q.hint : "");
     $("question").innerHTML = q.hasSlot ? q.html : `${q.html} = ${SLOT}`;
     $("question").classList.toggle("long", !!q.long || q.html.length > 60);
   }
@@ -1088,7 +1303,7 @@ function submitPick() {
 function submit() {
   const v = parseInput(G.input);
   if (Number.isNaN(v)) { $("answer").classList.add("shake"); setTimeout(() => $("answer").classList.remove("shake"), 260); return; }
-  const ok = Math.abs(v - G.q.ans) < 1e-9;
+  const ok = Math.abs(v - G.q.ans) <= (G.q.tol || 0) + 1e-9;
   G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, why: G.q.why, ms: performance.now() - G.q.t0 }); bump(G.q.op, ok);
   if (ok) {
     G.correct++;
@@ -1117,7 +1332,7 @@ function endGame() {
   const total = g.items.length;
   if (!total) { show("home"); renderHome(); return; }
   const ms = g.timer ? Math.min(performance.now() - g.start, g.timer * 1000) : performance.now() - g.start;
-  const session = { date: Date.now(), level: g.level, ops: g.ops, correct: g.correct, total, ms, timer: g.timer, count: g.count, daily: !!g.daily };
+  const session = { date: Date.now(), level: g.level, ops: g.ops, correct: g.correct, total, ms, timer: g.timer, count: g.count, daily: !!g.daily, psy0: !!g.psy0 };
   const complete = !g.daily && (g.timer ? ms >= g.timer * 1000 - 300 : g.count && total >= g.count);
   // Record seulement pour une séance menée jusqu'au bout
   let newRec = false;
@@ -1133,13 +1348,13 @@ function endGame() {
   $("again").textContent = g.daily ? "S'entraîner librement" : "Rejouer";
   if (g.daily) {
     const day = dateKey(), d = store.get("daily", {});
-    if (!d[day]) { d[day] = { correct: g.correct, total, ms }; store.set("daily", d); updateStreak(day); }
+    if (!d[day]) { d[day] = { correct: g.correct, total, ms }; store.set("daily", d); updateStreak(day); pushDuel(day, d[day]); }
     const sk = currentStreak();
     $("shareStreak").textContent = sk > 1 ? `Série en cours : ${sk} jours de suite.` : "Premier défi de ta série. Reviens demain !";
     $("shareText").textContent = shareTextFor(day, d[day]);
   }
   sfx.end();
-  $("resLabel").textContent = g.daily ? `Défi du jour · ${fmtDay(dateKey())}` : `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
+  $("resLabel").textContent = g.daily ? `Défi du jour · ${fmtDay(dateKey())}` : g.psy0 ? `Séance PSY0 · ${LEVELS[g.level].name} · ${fmtTime(g.timer * 1000)}` : `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
   $("resScore").innerHTML = g.timer ? `${g.correct}<small> justes</small>` : `${g.correct}<small>/${total}</small>`;
   $("resMsg").textContent = acc === 100 ? "Sans faute, bravo !" : acc >= 80 ? "Très bien, continue comme ça !" : acc >= 50 ? "Pas mal, regarde les corrections ci-dessous." : "Courage, chaque séance compte.";
   $("resRec").hidden = !newRec;
@@ -1171,8 +1386,9 @@ $("tipsBtn").onclick = () => {
   $("tipsBtn").textContent = c.hidden ? "Astuces" : "Masquer les astuces";
   if (!c.hidden) c.scrollIntoView({ behavior: "smooth", block: "start" });
 };
-$("start").onclick = startGame;
-$("again").onclick = startGame;
+$("start").onclick = () => startGame();
+$("psyBtn").onclick = () => startGame("psy0");
+$("again").onclick = () => startGame();
 $("menu").onclick = () => { show("home"); renderHome(); };
 $("quit").onclick = () => { if (G && G.daily && !confirm("Abandonner le défi ? Ton score du jour sera enregistré tel quel, sans seconde chance.")) return; endGame(); };
 $("question").addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) togglePick(+b.dataset.i); });
@@ -1222,6 +1438,8 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
 
 renderHome();
 applyPhoto();
+renderDuel();
+if (duel) duelConnect();
 </script>
 </body>
 </html>

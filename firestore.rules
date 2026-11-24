@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Check-list de la bastide (projet existant) ---
+    // Une liste n'est lisible et modifiable que si l'on connaît son code (présent dans le lien partagé).
+    match /listes/{liste}/taches/{tache} {
+      allow read, delete: if liste.size() >= 16;
+      allow create, update: if liste.size() >= 16
+        && request.resource.data.keys().hasOnly(['t', 'when', 'done', 'n'])
+        && request.resource.data.t is string
+        && request.resource.data.t.size() > 0
+        && request.resource.data.t.size() <= 140
+        && request.resource.data.when in ['', 'soir', 'matin', 'geraldine', 'depart']
+        && request.resource.data.done is bool
+        && request.resource.data.n is number;
+    }
+
+    // --- Duels de calcul mental ---
+    // Un duel n'est lisible que si l'on connaît son code (dans le lien d'invitation).
+    // Un résultat se crée une seule fois par jour et par joueur : il ne peut ensuite ni être modifié ni supprimé.
+    match /duels/{room}/results/{res} {
+      allow read: if room.size() >= 16;
+      allow create: if room.size() >= 16
+        && request.resource.data.keys().hasOnly(['day', 'pid', 'name', 'correct', 'total', 'ms', 'at'])
+        && request.resource.data.day is string && request.resource.data.day.size() == 10
+        && request.resource.data.pid is string && request.resource.data.pid.size() >= 6 && request.resource.data.pid.size() <= 20
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 20
+        && request.resource.data.correct is number && request.resource.data.total is number
+        && request.resource.data.ms is number && request.resource.data.at is number
+        && res == request.resource.data.day + '_' + request.resource.data.pid;
+    }
+  }
+}
