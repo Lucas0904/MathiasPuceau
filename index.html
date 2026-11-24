@@ -123,6 +123,18 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
 .pad button { min-height: 58px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pad button:active { background: var(--accent-soft); }
 .pad .go { grid-column: 1 / -1; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-size: 18px; font-weight: 700; }
+.pad.pickmode button:not(.go) { display: none; }
+.pickq { font-family: var(--font-body); font-size: 16px; width: 100%; }
+.picks { display: grid; gap: 8px; width: 100%; }
+.pick { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%; min-height: 52px; border: 2px solid var(--line); background: var(--surface); border-radius: 12px; padding: 8px 12px; font-size: clamp(17px, 5vw, 22px); font-variant-numeric: tabular-nums; }
+.pick .n { color: var(--muted); font-size: 13px; min-width: 1.1em; }
+.pick[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.pick.reveal { cursor: default; }
+.pick.isfalse { border-color: var(--bad); background: var(--bad-soft); }
+.pick.isfalse::after { content: "Fausse"; margin-left: auto; font-size: 12px; font-weight: 700; color: var(--bad); }
+.pick.isfalse[aria-pressed="false"]::after { content: "Fausse (oubliée)"; }
+.pick.wrong { border-color: var(--bad); }
+.pick.wrong::after { content: "Elle était juste"; margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); }
 .pad .wide { grid-column: span 3; }
 
 /* Résultats */
@@ -135,6 +147,16 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
 .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; }
 .kpi b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
 .kpi span { font-size: 12px; color: var(--muted); }
+.tipitem { border-bottom: 1px solid var(--line); }
+.tipitem:last-child { border-bottom: 0; }
+.tipitem summary { display: flex; gap: 10px; align-items: baseline; padding: 10px 0; cursor: pointer; font-size: 16px; font-variant-numeric: tabular-nums; list-style: none; }
+.tipitem summary::-webkit-details-marker { display: none; }
+.tipitem summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
+.tipitem[open] summary::after { content: "▴"; }
+.tipitem .mark { font-weight: 700; flex: none; }
+.tipitem .mark.ok { color: var(--ok); }
+.tipitem .mark.ko { color: var(--bad); }
+.tipitem .why { background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; margin: 0 0 10px; font-size: 15px; line-height: 1.5; }
 .errs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .errs li { border-bottom: 1px solid var(--line); padding-bottom: 10px; }
 .errs li:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -183,10 +205,6 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
   <button class="btn" id="start" type="button">Commencer</button>
   <p class="record" id="recordLine"></p>
 
-  <section class="card" style="margin-top:16px">
-    <div class="tip" id="homeTip"></div>
-  </section>
-
   <section class="card" id="histCard" hidden>
     <h2>Dernières séances</h2>
     <ul class="hist" id="hist"></ul>
@@ -227,7 +245,6 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
     <div class="answer empty" id="answer" aria-live="polite"></div>
     <div class="correction" id="correction" hidden>
       <div class="sol" id="sol"></div>
-      <div class="tip" id="corrTip"></div>
     </div>
   </div>
 
@@ -257,9 +274,14 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
     <h2>Corrections</h2>
     <ul class="errs" id="errs"></ul>
   </section>
-  <section class="card"><div class="tip" id="resTip"></div></section>
+  <section class="card" id="tipsCard" hidden>
+    <h2>Astuces</h2>
+    <p class="level-desc" style="margin:0 0 10px">Touche un calcul pour voir la méthode, pas à pas.</p>
+    <div id="tipsList"></div>
+  </section>
   <div class="actions">
-    <button class="btn" id="again" type="button">Rejouer</button>
+    <button class="btn" id="tipsBtn" type="button">Astuces</button>
+    <button class="btn secondary" id="again" type="button">Rejouer</button>
     <button class="btn secondary" id="menu" type="button">Changer les réglages</button>
   </div>
 </main>
@@ -294,17 +316,90 @@ const LEVELS = [
   { id: 3, name: "Expert", desc: "Grands nombres, deux chiffres × deux chiffres, longues chaînes." }
 ];
 
+/* ---------- Explications précises (une par calcul) ---------- */
+const parts = (n) => { const s = String(n), o = []; for (let i = 0; i < s.length; i++) { const d = +s[i]; if (d) o.push(d * 10 ** (s.length - 1 - i)); } return o; };
+function whyAdd(a, b) {
+  const u = b % 10;
+  if (u >= 7) { const c = b + 10 - u, e = c - b; return `${fmt(b)} est tout près de ${fmt(c)}. Ajoute ${fmt(c)} : ${fmt(a)} + ${fmt(c)} = ${fmt(a + c)}. Puis retire l'écart de ${e} : ${fmt(a + c)} ${MINUS} ${e} = ${fmt(a + b)}.`; }
+  const p = parts(b);
+  if (p.length === 1) return `Ajoute directement : ${fmt(a)} + ${fmt(b)} = ${fmt(a + b)}.`;
+  let t = a; const st = p.map((x) => { const r = `${fmt(t)} + ${fmt(x)} = ${fmt(t + x)}`; t += x; return r; });
+  return `Ajoute ${fmt(b)} par morceaux, du plus gros au plus petit (${p.map(fmt).join(" + ")}) : ${st.join(", puis ")}.`;
+}
+function whySub(a, b) {
+  const u = b % 10;
+  if (u >= 7) { const c = b + 10 - u, e = c - b; return `${fmt(b)} est tout près de ${fmt(c)}. Enlève ${fmt(c)} : ${fmt(a)} ${MINUS} ${fmt(c)} = ${fmt(a - c)}. Puis rends l'écart de ${e} : ${fmt(a - c)} + ${e} = ${fmt(a - b)}.`; }
+  const p = parts(b);
+  if (p.length === 1) return `Enlève directement : ${fmt(a)} ${MINUS} ${fmt(b)} = ${fmt(a - b)}.`;
+  let t = a; const st = p.map((x) => { const r = `${fmt(t)} ${MINUS} ${fmt(x)} = ${fmt(t - x)}`; t -= x; return r; });
+  return `Enlève ${fmt(b)} par morceaux (${p.map(fmt).join(" + ")}) : ${st.join(", puis ")}.`;
+}
+function whyMul(a, b) {
+  const r = a * b, has = (n) => a === n || b === n, o = (n) => (a === n ? b : a);
+  if (has(10)) return `× 10 : on ajoute un zéro à ${o(10)}, ça fait ${r}.`;
+  if (has(5)) return `× 5, c'est × 10 puis la moitié : ${o(5)} × 10 = ${o(5) * 10}, la moitié de ${o(5) * 10} est ${r}.`;
+  if (has(9)) return `× 9, c'est × 10 puis on retire le nombre : ${o(9)} × 10 = ${o(9) * 10}, ${o(9) * 10} ${MINUS} ${o(9)} = ${r}.`;
+  if (has(4)) return `× 4, c'est doubler deux fois : ${o(4)} × 2 = ${o(4) * 2}, puis ${o(4) * 2} × 2 = ${r}.`;
+  const big = Math.max(a, b), small = Math.min(a, b);
+  if (big <= 10) {
+    if (small >= 6) return `${big} × ${small} = ${big} × 10 ${MINUS} ${big} × ${10 - small} = ${big * 10} ${MINUS} ${big * (10 - small)} = ${r}.`;
+    return `Pense à la table de ${small} : ${small} × ${big - 1} = ${small * (big - 1)}, et on ajoute encore ${small} : ${small * (big - 1)} + ${small} = ${r}.`;
+  }
+  if (small <= 9) {
+    const p = parts(big);
+    if (p.length === 1) return `${big / (10 ** (String(big).length - 1))} × ${small} = ${big / (10 ** (String(big).length - 1)) * small}, puis on remet les zéros : ${r}.`;
+    return `Décompose ${fmt(big)} en ${p.join(" + ")}. ${p.map((x) => `${x} × ${small} = ${x * small}`).join(", ")}. Additionne : ${p.map((x) => x * small).join(" + ")} = ${r}.`;
+  }
+  const p = parts(small);
+  if (p.length === 1) return `${big} × ${small / 10} = ${big * small / 10}, puis × 10 : ${r}.`;
+  return `Décompose ${small} en ${p.join(" + ")}. ${big} × ${p[0]} = ${big * p[0]} et ${big} × ${p[1]} = ${big * p[1]}. Additionne : ${big * p[0]} + ${big * p[1]} = ${r}.`;
+}
+function whyDiv(a, b, q) {
+  if (b === 5) return `÷ 5, c'est × 2 puis ÷ 10 : ${fmt(a)} × 2 = ${fmt(a * 2)}, puis ÷ 10 = ${q}.`;
+  const t = Math.floor(q / 10) * 10;
+  if (t > 0 && t !== q) { const m = b * t; return `Cherche un gros morceau : ${b} × ${t} = ${fmt(m)}. Il reste ${fmt(a)} ${MINUS} ${fmt(m)} = ${fmt(a - m)}, et ${fmt(a - m)} ${DIV} ${b} = ${q - t}. Total : ${t} + ${q - t} = ${q}.`; }
+  return `Cherche dans la table de ${b} : ${b} × ${q} = ${fmt(a)}, donc ${fmt(a)} ${DIV} ${b} = ${q}.`;
+}
+function whySq(a) {
+  if (a <= 10) return `Table de ${a} : ${a} × ${a} = ${a * a}.`;
+  if (a % 10 === 5) { const n = (a - 5) / 10; return `Un nombre qui finit par 5 : ${n} × ${n + 1} = ${n * (n + 1)}, puis on écrit 25 à la suite. ${a}² = ${a * a}.`; }
+  const c = Math.round(a / 10) * 10, d = a - c, sg = d < 0 ? MINUS : "+", ad = Math.abs(d);
+  return `Passe par la dizaine ${c} : ${a} = ${c} ${sg} ${ad}. Donc ${a}² = ${c}² ${sg} 2 × ${c} × ${ad} + ${ad}² = ${c * c} ${sg} ${2 * c * ad} + ${d * d} = ${a * a}.`;
+}
+function whyFrac(n, d, k) {
+  const X = d * k;
+  if (n === 1) return `Prendre ${frac(1, d)}, c'est diviser par ${d} : ${fmt(X)} ${DIV} ${d} = ${k}.`;
+  return `Divise d'abord par ${d} : ${fmt(X)} ${DIV} ${d} = ${k}. Puis multiplie par ${n} : ${k} × ${n} = ${n * k}.`;
+}
+function whyPct(p, x) {
+  const r = p * x / 100, t = x / 10;
+  if (p === 50) return `50 % = la moitié : ${fmt(x)} ${DIV} 2 = ${fmt(r)}.`;
+  if (p === 25) return `25 % = un quart : ${fmt(x)} ${DIV} 4 = ${fmt(r)}.`;
+  if (p === 75) return `75 % = trois quarts : ${fmt(x)} ${DIV} 4 = ${fmt(x / 4)}, puis × 3 = ${fmt(r)}.`;
+  if (p === 10) return `10 % = diviser par 10 : ${fmt(x)} ${DIV} 10 = ${fmt(r)}.`;
+  const a = Math.floor(p / 10);
+  if (p % 5 === 0) {
+    const half = p % 10 === 5;
+    let w = `10 % de ${fmt(x)} = ${fmt(t)}. `;
+    if (a > 0) w += `${p - (half ? 5 : 0)} % = ${a} × ${fmt(t)} = ${fmt(a * t)}. `;
+    if (half) w += `5 % = la moitié de 10 % = ${fmt(x / 20)}. `;
+    return w + `Total : ${fmt(r)}.`;
+  }
+  const b = p % 10;
+  return `10 % de ${fmt(x)} = ${fmt(t)} et 1 % = ${fmt(x / 100)}. ${p} % = ${a} × 10 % + ${b} × 1 % = ${fmt(a * t)} + ${fmt(b * x / 100)} = ${fmt(r)}.`;
+}
+
 /* ---------- Générateurs : chacun renvoie { html, ans } ---------- */
 const GEN = {
   add(l) {
     const r = [[1, 20, 1, 20], [10, 99, 10, 99], [100, 999, 10, 999], [1000, 9999, 100, 9999]][l];
     const a = rnd(r[0], r[1]), b = rnd(r[2], r[3]);
-    return { html: `${fmt(a)} + ${fmt(b)}`, ans: a + b };
+    return { html: `${fmt(a)} + ${fmt(b)}`, ans: a + b, why: whyAdd(a, b) };
   },
   sub(l) {
     const r = [[5, 20, 1], [20, 99, 10], [100, 999, 10], [1000, 9999, 100]][l];
     const a = rnd(r[0], r[1]), b = rnd(r[2], a - 1);
-    return { html: `${fmt(a)} ${MINUS} ${fmt(b)}`, ans: a - b };
+    return { html: `${fmt(a)} ${MINUS} ${fmt(b)}`, ans: a - b, why: whySub(a, b) };
   },
   mul(l) {
     let a, b;
@@ -313,17 +408,17 @@ const GEN = {
     else if (l === 2) { a = rnd(11, 99); b = rnd(2, 9); }
     else { a = rnd(11, 99); b = rnd(11, 30); }
     if (Math.random() < .5) [a, b] = [b, a];
-    return { html: `${a} ${TIMES} ${b}`, ans: a * b };
+    return { html: `${a} ${TIMES} ${b}`, ans: a * b, why: whyMul(a, b) };
   },
   div(l) {
     const r = [[2, 5, 1, 10], [2, 10, 2, 12], [3, 15, 11, 30], [11, 25, 12, 50]][l];
     const b = rnd(r[0], r[1]), q = rnd(r[2], r[3]);
-    return { html: `${fmt(b * q)} ${DIV} ${b}`, ans: q };
+    return { html: `${fmt(b * q)} ${DIV} ${b}`, ans: q, why: whyDiv(b * q, b, q) };
   },
   sq(l) {
     const r = [[1, 10], [11, 15], [11, 25], [21, 60]][l];
     const a = rnd(r[0], r[1]);
-    return { html: `${a}<sup>2</sup>`, ans: a * a };
+    return { html: `${a}<sup>2</sup>`, ans: a * a, why: whySq(a) };
   },
   frac(l) {
     let n, d, k;
@@ -332,7 +427,7 @@ const GEN = {
     else if (l === 2) { d = rnd(3, 12); n = rnd(1, d - 1); k = rnd(5, 20); }
     else { d = rnd(3, 16); n = rnd(1, 2 * d - 1); if (n === d) n++; k = rnd(6, 25); }
     const g = gcd(n, d); n /= g; d /= g;
-    return { html: `${frac(n, d)} de ${fmt(d * k)}`, ans: n * k };
+    return { html: `${frac(n, d)} de ${fmt(d * k)}`, ans: n * k, why: whyFrac(n, d, k) };
   },
   pct(l) {
     let p, x;
@@ -340,46 +435,119 @@ const GEN = {
     else if (l === 1) { p = 5 * rnd(1, 19); x = 20 * rnd(1, 15); }
     else if (l === 2) { p = pick([1, 2, 5, 15, 20, 30, 40, 60, 70, 75, 80, 90, 120, 150]); x = 10 * rnd(2, 60); }
     else { p = rnd(1, 150); x = 10 * rnd(3, 99); }
-    return { html: `${p} % de ${fmt(x)}`, ans: p * x / 100 };
+    return { html: `${p} % de ${fmt(x)}`, ans: p * x / 100, why: whyPct(p, x) };
   },
   dec(l) {
     const t = (v) => v / 10, h = (v) => v / 100;
     if (l === 0) {
       const a = rnd(1, 99), b = rnd(1, 99);
-      return { html: `${fmt(t(a))} + ${fmt(t(b))}`, ans: t(a + b) };
+      return { html: `${fmt(t(a))} + ${fmt(t(b))}`, ans: t(a + b),
+        why: `Compte en dixièmes : ${fmt(t(a))} = ${a} dixièmes et ${fmt(t(b))} = ${b} dixièmes. ${a} + ${b} = ${a + b} dixièmes, soit ${fmt(t(a + b))}.` };
     }
     if (l === 1) {
       const kind = rnd(0, 2);
-      if (kind === 0) { const a = rnd(100, 999), b = rnd(10, a - 1); return { html: `${fmt(h(a))} ${MINUS} ${fmt(h(b))}`, ans: h(a - b) }; }
-      if (kind === 1) { const a = rnd(11, 999), m = pick([10, 100]); return Math.random() < .5 ? { html: `${fmt(h(a))} ${TIMES} ${m}`, ans: a * m / 100 } : { html: `${fmt(a)} ${DIV} ${m}`, ans: a / m }; }
-      const a = 2 * rnd(3, 60); return { html: `0,5 ${TIMES} ${a}`, ans: a / 2 };
+      if (kind === 0) { const a = rnd(100, 999), b = rnd(10, a - 1); return { html: `${fmt(h(a))} ${MINUS} ${fmt(h(b))}`, ans: h(a - b),
+        why: `Passe en centièmes : ${fmt(h(a))} = ${a} centièmes et ${fmt(h(b))} = ${b} centièmes. ${a} ${MINUS} ${b} = ${a - b} centièmes, soit ${fmt(h(a - b))}.` }; }
+      if (kind === 1) {
+        const a = rnd(11, 999), m = pick([10, 100]), n = m === 10 ? 1 : 2;
+        if (Math.random() < .5) return { html: `${fmt(h(a))} ${TIMES} ${m}`, ans: a * m / 100,
+          why: `× ${m} : décale la virgule de ${n} rang${n > 1 ? "s" : ""} vers la droite. ${fmt(h(a))} devient ${fmt(a * m / 100)}.` };
+        return { html: `${fmt(a)} ${DIV} ${m}`, ans: a / m,
+          why: `÷ ${m} : décale la virgule de ${n} rang${n > 1 ? "s" : ""} vers la gauche. ${fmt(a)} devient ${fmt(a / m)}.` };
+      }
+      const a = 2 * rnd(3, 60);
+      return { html: `0,5 ${TIMES} ${a}`, ans: a / 2, why: `× 0,5, c'est prendre la moitié : ${a} ÷ 2 = ${a / 2}.` };
     }
     if (l === 2) {
       const kind = rnd(0, 2);
-      if (kind === 0) { const a = rnd(11, 99), b = rnd(2, 12); return { html: `${fmt(t(a))} ${TIMES} ${b}`, ans: a * b / 10 }; }
-      if (kind === 1) { const a = rnd(2, 40), d = pick([0.5, 0.25]); return { html: `${a} ${DIV} ${fmt(d)}`, ans: a / d }; }
-      const a = rnd(101, 999), b = rnd(11, 99); return { html: `${fmt(h(a))} + ${fmt(t(b))}`, ans: (a + 10 * b) / 100 };
+      if (kind === 0) { const a = rnd(11, 99), b = rnd(2, 12); return { html: `${fmt(t(a))} ${TIMES} ${b}`, ans: a * b / 10,
+        why: `Oublie la virgule : ${a} × ${b} = ${a * b}. ${fmt(t(a))} a un chiffre après la virgule, le résultat aussi : ${fmt(a * b / 10)}.` }; }
+      if (kind === 1) { const a = rnd(2, 40), d = pick([0.5, 0.25]); return { html: `${a} ${DIV} ${fmt(d)}`, ans: a / d,
+        why: `Diviser par ${fmt(d)}, c'est multiplier par ${d === .5 ? 2 : 4} (il y a ${d === .5 ? "2 moitiés" : "4 quarts"} dans 1). ${a} × ${d === .5 ? 2 : 4} = ${a / d}.` }; }
+      const a = rnd(101, 999), b = rnd(11, 99); return { html: `${fmt(h(a))} + ${fmt(t(b))}`, ans: (a + 10 * b) / 100,
+        why: `Passe tout en centièmes : ${fmt(h(a))} = ${a} centièmes et ${fmt(t(b))} = ${10 * b} centièmes. ${a} + ${10 * b} = ${a + 10 * b} centièmes, soit ${fmt((a + 10 * b) / 100)}.` };
     }
     const kind = rnd(0, 2);
-    if (kind === 0) { const a = rnd(2, 15), b = rnd(2, 15); return { html: `${fmt(t(a))} ${TIMES} ${fmt(t(b))}`, ans: a * b / 100 }; }
-    if (kind === 1) { const b = rnd(2, 9), q = rnd(2, 30); return { html: `${fmt(t(b * q))} ${DIV} ${fmt(t(b))}`, ans: q }; }
-    const a = rnd(11, 99), b = rnd(11, 99); return { html: `${fmt(t(a))} ${TIMES} ${b}`, ans: a * b / 10 };
+    if (kind === 0) { const a = rnd(2, 15), b = rnd(2, 15); return { html: `${fmt(t(a))} ${TIMES} ${fmt(t(b))}`, ans: a * b / 100,
+      why: `Oublie les virgules : ${a} × ${b} = ${a * b}. Il y a une décimale dans chaque facteur, donc deux au total : ${fmt(a * b / 100)}.` }; }
+    if (kind === 1) { const b = rnd(2, 9), q = rnd(2, 30); return { html: `${fmt(t(b * q))} ${DIV} ${fmt(t(b))}`, ans: q,
+      why: `Les deux nombres ont une décimale : les virgules s'annulent. ${b * q} ÷ ${b} = ${q}.` }; }
+    const a = rnd(11, 99), b = rnd(11, 99); return { html: `${fmt(t(a))} ${TIMES} ${b}`, ans: a * b / 10,
+      why: `Oublie la virgule : ${a} × ${b} = ${a * b}. ${fmt(t(a))} a un chiffre après la virgule, le résultat aussi : ${fmt(a * b / 10)}.` };
   },
   /* Opérations longues : une chaîne de + et − qui ne passe jamais sous zéro */
   chain(l) {
     const cfg = [[4, 5, 20, 1, 9], [5, 30, 99, 5, 30], [6, 100, 600, 10, 99], [8, 200, 999, 10, 199]][l];
     const [n, s0, s1, m0, m1] = cfg;
-    let total = rnd(s0, s1), html = fmt(total);
+    const start = rnd(s0, s1); let total = start, html = fmt(total);
+    const plus = [], minus = [], path = [fmt(start)];
     for (let i = 1; i < n; i++) {
       const v = rnd(m0, m1);
-      const plus = total - v < 0 || Math.random() < .5;
-      total += plus ? v : -v;
-      html += ` ${plus ? "+" : MINUS} ${fmt(v)}`;
+      const isPlus = total - v < 0 || Math.random() < .5;
+      total += isPlus ? v : -v;
+      (isPlus ? plus : minus).push(v);
+      html += ` ${isPlus ? "+" : MINUS} ${fmt(v)}`;
+      path.push(`${isPlus ? "+" : MINUS} ${fmt(v)} = ${fmt(total)}`);
     }
-    return { html, ans: total, long: true };
+    const sum = (a) => a.reduce((x, y) => x + y, 0);
+    const why = `<b>Pas à pas :</b> on part de ${path[0]}, puis ${path.slice(1).join(", puis ")}.<br>` +
+      `<b>Ou en regroupant :</b> les ajouts font ${plus.length ? plus.map(fmt).join(" + ") + " = " + fmt(sum(plus)) : "0"}, les retraits font ${minus.length ? minus.map(fmt).join(" + ") + " = " + fmt(sum(minus)) : "0"}. ` +
+      `Donc ${fmt(start)} + ${fmt(sum(plus))} ${MINUS} ${fmt(sum(minus))} = ${fmt(total)}.`;
+    return { html, ans: total, long: true, why };
   },
   /* Égalités à trou, façon PSY0 : 24 ÷ 2 = 2 × ? */
   eq(l) {
+    const { L, R, V } = eqCore(l);
+    const hideSide = Math.random() < .7 ? 1 : 0, hidePos = Math.random() < .5 ? 0 : 2;
+    const sides = [L, R];
+    const ans = sides[hideSide][hidePos];
+    const render = (s, i) => s.map((v, j) => (j === 1 ? v : (i === hideSide && j === hidePos ? SLOT : fmt(v)))).join(" ");
+    const known = sides[1 - hideSide], u = sides[hideSide], other = u[2 - hidePos], op = u[1], v = fmt(V);
+    let why = `Calcule d'abord le côté complet : ${sideStr(known)} = ${v}. Il faut donc que l'autre côté, ${render(u, hideSide)}, vaille aussi ${v}. `;
+    if (op === "+") why += `Pour retrouver un terme d'une addition, on soustrait l'autre : ${v} ${MINUS} ${fmt(other)} = ${fmt(ans)}.`;
+    else if (op === MINUS) why += hidePos === 0 ? `Le trou est ce dont on a enlevé ${fmt(other)} : on remonte avec ${v} + ${fmt(other)} = ${fmt(ans)}.` : `Le trou est ce qu'on a enlevé à ${fmt(other)} : ${fmt(other)} ${MINUS} ${v} = ${fmt(ans)}.`;
+    else if (op === TIMES) why += `Pour retrouver un facteur, on divise par l'autre : ${v} ${DIV} ${fmt(other)} = ${fmt(ans)}.`;
+    else why += hidePos === 0 ? `Le trou est le nombre qu'on a divisé par ${fmt(other)} : on remonte avec ${v} ${TIMES} ${fmt(other)} = ${fmt(ans)}.` : `Le trou est le diviseur : ${fmt(other)} ${DIV} ${v} = ${fmt(ans)}.`;
+    return { html: `${render(L, 0)} = ${render(R, 1)}`, ans, hasSlot: true, why };
+  },
+  /* Égalités fausses, façon PSY0 : une liste d'égalités dont 1 à 3 sont fausses, il faut les repérer */
+  intrus(l) {
+    const [n, maxFalse] = [[4, 2], [5, 2], [6, 3], [7, 3]][l];
+    const nf = rnd(1, maxFalse), bad = new Set();
+    while (bad.size < nf) bad.add(rnd(0, n - 1));
+    const items = [], seen = new Set();
+    for (let i = 0; i < n; i++) {
+      let c, guard = 0;
+      do { c = eqCore(l); } while (seen.has(sideStr(c.L) + sideStr(c.R)) && guard++ < 30);
+      seen.add(sideStr(c.L) + sideStr(c.R));
+      let { L, R } = c;
+      const isBad = bad.has(i);
+      if (isBad) { if (Math.random() < .5) R = falsify(R, l); else L = falsify(L, l); }
+      if (Math.random() < .5) [L, R] = [R, L];
+      items.push({ html: `${sideStr(L)} = ${sideStr(R)}`, bad: isBad, lv: evalSide(L), rv: evalSide(R) });
+    }
+    const ans = [...bad].sort((a, b) => a - b);
+    const why = "Calcule chaque côté puis compare :<br><br>" + items.map((it, i) =>
+      `<b>${i + 1}.</b> ${it.html}<br>&nbsp;&nbsp;&nbsp;→ ${fmt(it.lv)} ${it.bad ? "≠" : "="} ${fmt(it.rv)}, ${it.bad ? "<b>fausse</b>" : "juste"}`).join("<br>");
+    return { pick: true, items, ans, html: items.map((x) => x.html).join(" | "), why };
+  }
+};
+const sideStr = (s) => `${fmt(s[0])} ${s[1]} ${fmt(s[2])}`;
+const evalSide = (s) => s[1] === "+" ? s[0] + s[2] : s[1] === MINUS ? s[0] - s[2] : s[1] === TIMES ? s[0] * s[2] : s[0] / s[2];
+function falsify(s, l) {
+  if (s[1] === DIV) {
+    const ds = [1, -1, 2, -2].filter((d) => s[0] / s[2] + d > 0);
+    const t = s.slice(); t[0] += pick(ds) * s[2]; return t;
+  }
+  const deltas = l < 2 ? [1, 2, 3, -1, -2, -3] : [1, 2, 10, -1, -2, -10];
+  for (let i = 0; i < 40; i++) {
+    const u = s.slice(), idx = pick([0, 2]);
+    u[idx] += pick(deltas);
+    if (u[idx] >= 1 && evalSide(u) > 0 && evalSide(u) !== evalSide(s)) return u;
+  }
+  const u = s.slice(); u[0] += 1; return u;
+}
+function eqCore(l) {
     const P = [[2, 5, 2, 6, 5], [2, 9, 2, 10, 9], [2, 12, 3, 15, 12], [3, 15, 6, 30, 20]][l];
     const V = rnd(P[0], P[1]) * rnd(P[2], P[3]);
     const forms = l === 0 ? ["mul", "add", "div"] : ["mul", "div", "add", "sub"];
@@ -397,13 +565,8 @@ const GEN = {
     while ((!L || !R || (L[0] === R[0] && L[1] === R[1])) && guard++ < 50) {
       L = make(pick(forms)); R = make(pick(forms));
     }
-    const hideSide = Math.random() < .7 ? 1 : 0, hidePos = Math.random() < .5 ? 0 : 2;
-    const sides = [L, R];
-    const ans = sides[hideSide][hidePos];
-    const render = (s, i) => s.map((v, j) => (j === 1 ? v : (i === hideSide && j === hidePos ? SLOT : fmt(v)))).join(" ");
-    return { html: `${render(L, 0)} = ${render(R, 1)}`, ans, hasSlot: true };
-  }
-};
+    return { L, R, V };
+}
 function gcd(a, b) { while (b) [a, b] = [b, a % b]; return a; }
 
 const OPS = [
@@ -412,80 +575,14 @@ const OPS = [
   { id: "mul", label: "Multiplication", sym: TIMES },
   { id: "div", label: "Division", sym: DIV },
   { id: "chain", label: "Opérations longues", sym: "…" },
-  { id: "eq", label: "Égalités (PSY0)", sym: "=" },
+  { id: "eq", label: "Égalités à trou (PSY0)", sym: "=" },
+  { id: "intrus", label: "Égalités fausses (PSY0)", sym: "≠" },
   { id: "frac", label: "Fractions", sym: "½" },
   { id: "pct", label: "Pourcentages", sym: "%" },
   { id: "dec", label: "Décimaux", sym: "," },
   { id: "sq", label: "Carrés", sym: "x²" }
 ];
 const OP_BY_ID = Object.fromEntries(OPS.map((o) => [o.id, o]));
-
-/* ---------- Astuces ---------- */
-const TIPS = {
-  add: [
-    "Pour ajouter 9, ajoute 10 puis enlève 1. Pour ajouter 99, ajoute 100 puis enlève 1.",
-    "Additionne de gauche à droite : 47 + 38, c'est 70 + 15 = 85.",
-    "Cherche les compléments à 10 ou à 100 : 64 + 36 = 100.",
-    "Arrondis puis corrige : 298 + 145 = 300 + 145 − 2 = 443."
-  ],
-  sub: [
-    "Pour enlever 9, enlève 10 puis rajoute 1.",
-    "Compte « à trous » : 83 − 47, de 47 à 50 il y a 3, de 50 à 83 il y a 33, donc 36.",
-    "Décaler les deux nombres ne change pas l'écart : 82 − 39 = 83 − 40 = 43."
-  ],
-  mul: [
-    "× 5 : multiplie par 10 puis divise par 2. 48 × 5 = 480 ÷ 2 = 240.",
-    "× 9 : multiplie par 10 puis enlève le nombre. 37 × 9 = 370 − 37 = 333.",
-    "× 11 sur deux chiffres : écarte-les et mets leur somme au milieu. 34 × 11 = 374.",
-    "Décompose : 23 × 7 = 20 × 7 + 3 × 7 = 140 + 21 = 161.",
-    "Double et moitié : 16 × 25 = 8 × 50 = 4 × 100 = 400.",
-    "× 4, c'est doubler deux fois. × 8, c'est doubler trois fois."
-  ],
-  div: [
-    "Pense à l'envers : 72 ÷ 8, c'est « 8 fois combien font 72 ? ».",
-    "÷ 5 : multiplie par 2 puis divise par 10. 135 ÷ 5 = 270 ÷ 10 = 27.",
-    "Simplifie avant : 84 ÷ 12 = 42 ÷ 6 = 7.",
-    "Découpe le dividende : 156 ÷ 12 = 120 ÷ 12 + 36 ÷ 12 = 10 + 3 = 13."
-  ],
-  sq: [
-    "Un nombre qui finit par 5 : (a5)² = a × (a+1) suivi de 25. 35² = 3 × 4 = 12, donc 1225.",
-    "Près d'une dizaine : 49² = 50² − 2 × 50 + 1 = 2500 − 100 + 1 = 2401.",
-    "(a + b)² = a² + 2ab + b² : 23² = 400 + 120 + 9 = 529."
-  ],
-  frac: [
-    "Divise d'abord par le dénominateur, puis multiplie par le numérateur : les trois quarts de 48, c'est 48 ÷ 4 = 12, puis 12 × 3 = 36.",
-    "La moitié d'un quart, c'est un huitième : divise deux fois par 2 puis encore par 2.",
-    "Trois quarts = un entier moins un quart : 3 quarts de 80 = 80 − 20 = 60."
-  ],
-  pct: [
-    "10 % = diviser par 10. 5 % = la moitié de 10 %. 1 % = diviser par 100.",
-    "x % de y = y % de x : 8 % de 50 = 50 % de 8 = 4.",
-    "Construis à partir de 10 % : 35 % de 60 = 3 × 6 + 3 = 21.",
-    "25 % = un quart, 75 % = trois quarts, 20 % = un cinquième."
-  ],
-  dec: [
-    "× 0,5 = diviser par 2. ÷ 0,5 = multiplier par 2. ÷ 0,25 = multiplier par 4.",
-    "Calcule sans la virgule puis replace-la : 0,3 × 1,2 → 3 × 12 = 36 → deux chiffres après la virgule → 0,36.",
-    "Aligne les virgules dans ta tête : 2,45 + 1,6 = 2,45 + 1,60 = 4,05."
-  ],
-  chain: [
-    "Regroupe les + d'un côté, les − de l'autre, puis fais une seule soustraction.",
-    "Cherche les paires qui s'annulent ou font un compte rond : + 21 − 10 + 78… repère 22 + 78 = 100.",
-    "Garde un total courant et répète-le dans ta tête à chaque étape."
-  ],
-  eq: [
-    "Calcule d'abord le côté complet, puis résous l'autre : 24 ÷ 2 = 12, donc 2 × ? = 12, ? = 6.",
-    "Si le trou est dans une division, ? ÷ 4 = 9 donne ? = 36 : on remonte avec l'opération inverse.",
-    "Si le trou est dans une soustraction, 50 − ? = 32 donne ? = 50 − 32 = 18."
-  ]
-};
-const GENERIC_TIPS = [
-  "Vise la régularité plutôt que la vitesse : la vitesse vient toute seule.",
-  "Dis le calcul dans ta tête avec des mots, ça aide à ne pas perdre le fil.",
-  "Estime d'abord l'ordre de grandeur : ça permet de repérer une réponse absurde."
-];
-const tipFor = (op) => pick(TIPS[op] || GENERIC_TIPS);
-const tipHTML = (t) => `<b>Astuce</b>${t}`;
 
 /* ---------- Réglages ---------- */
 const TIMERS = [{ v: 0, l: "Sans" }, { v: 60, l: "1 min" }, { v: 120, l: "2 min" }, { v: 300, l: "5 min" }];
@@ -530,8 +627,6 @@ function renderHome() {
   segment($("timers"), TIMERS, "timer", refreshHome);
   segment($("counts"), COUNTS, "count", refreshHome);
   refreshHome();
-  const ops = settings.ops.length ? settings.ops : Object.keys(TIPS);
-  $("homeTip").innerHTML = tipHTML(tipFor(pick(ops)));
 }
 function refreshHome() {
   $("levelDesc").textContent = LEVELS[settings.level].desc;
@@ -590,11 +685,21 @@ function updateClock() {
 function nextQuestion() {
   let q, op, guard = 0;
   do { op = pick(G.ops); q = GEN[op](G.level); } while (q.html === G.last && guard++ < 20);
-  q.op = op; q.ans = round4(q.ans); q.t0 = performance.now();
-  G.q = q; G.last = q.html; G.input = ""; G.waiting = false;
-  $("kind").textContent = OP_BY_ID[op].label;
-  $("question").innerHTML = q.hasSlot ? q.html : `${q.html} = ${SLOT}`;
-  $("question").classList.toggle("long", !!q.long || q.html.length > 60);
+  q.op = op; q.ans = q.pick ? q.ans : round4(q.ans); q.t0 = performance.now();
+  G.q = q; G.last = q.html; G.input = ""; G.waiting = false; G.sel = new Set();
+  $("answer").hidden = !!q.pick;
+  $("pad").classList.toggle("pickmode", !!q.pick);
+  $("question").classList.toggle("pickq", !!q.pick);
+  if (q.pick) {
+    $("kind").textContent = "Touche les égalités fausses";
+    $("question").classList.remove("long");
+    $("question").innerHTML = '<div class="picks">' + q.items.map((it, i) =>
+      `<button type="button" class="pick" data-i="${i}" aria-pressed="false"><span class="n">${i + 1}</span><span>${it.html}</span></button>`).join("") + "</div>";
+  } else {
+    $("kind").textContent = OP_BY_ID[op].label;
+    $("question").innerHTML = q.hasSlot ? q.html : `${q.html} = ${SLOT}`;
+    $("question").classList.toggle("long", !!q.long || q.html.length > 60);
+  }
   $("correction").hidden = true;
   $("go").textContent = "Valider";
   const done = G.items.length;
@@ -611,6 +716,11 @@ function parseInput(s) { if (!s || s === ",") return NaN; return Number(s.replac
 function press(k) {
   if (!G) return;
   if (G.waiting) { if (k === "ok") afterAnswer(); return; }
+  if (G.q.pick) {
+    if (k === "ok") submitPick();
+    else if (/^[1-9]$/.test(k) && +k <= G.q.items.length) togglePick(+k - 1);
+    return;
+  }
   if (k === "del") G.input = G.input.slice(0, -1);
   else if (k === "ok") return submit(false);
   else if (k === ",") { if (!G.input.includes(",") && G.input.length < 10) G.input = (G.input || "0") + ","; }
@@ -619,11 +729,34 @@ function press(k) {
   // Validation automatique dès que la réponse juste est tapée en entier
   if (k !== "del" && k !== "," && parseInput(G.input) === G.q.ans && G.input.replace(",", "").length >= fmt(G.q.ans).replace(/[, ]/g, "").length) submit(true);
 }
+function togglePick(i) {
+  if (!G || !G.q.pick || G.waiting) return;
+  if (G.sel.has(i)) G.sel.delete(i); else G.sel.add(i);
+  const b = $("question").querySelector(`button[data-i="${i}"]`);
+  if (b) b.setAttribute("aria-pressed", String(G.sel.has(i)));
+}
+function submitPick() {
+  const chosen = [...G.sel].sort((a, b) => a - b);
+  if (!chosen.length) { $("question").classList.add("shake"); setTimeout(() => $("question").classList.remove("shake"), 260); return; }
+  const q = G.q, ok = chosen.join() === q.ans.join();
+  G.items.push({ pick: true, items: q.items, ans: q.ans, chosen, op: q.op, ok, why: q.why, ms: performance.now() - q.t0 });
+  $("question").querySelectorAll("button.pick").forEach((b, i) => {
+    b.classList.add("reveal"); b.disabled = true;
+    if (q.items[i].bad) b.classList.add("isfalse"); else if (G.sel.has(i)) b.classList.add("wrong");
+  });
+  G.waiting = true;
+  if (ok) { G.correct++; setTimeout(() => { if (G && G.waiting) afterAnswer(); }, 700); }
+  else {
+    $("sol").innerHTML = "Les fausses étaient : <b>" + q.ans.map((i) => "n°" + (i + 1)).join(", ") + "</b>";
+    $("correction").hidden = false;
+    $("go").textContent = "Suivant";
+  }
+}
 function submit() {
   const v = parseInput(G.input);
   if (Number.isNaN(v)) { $("answer").classList.add("shake"); setTimeout(() => $("answer").classList.remove("shake"), 260); return; }
   const ok = Math.abs(v - G.q.ans) < 1e-9;
-  G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, ms: performance.now() - G.q.t0 });
+  G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, why: G.q.why, ms: performance.now() - G.q.t0 });
   if (ok) {
     G.correct++;
     renderAnswer("ok");
@@ -633,7 +766,6 @@ function submit() {
     renderAnswer("bad");
     const shown = G.q.hasSlot ? G.q.html.replace(SLOT, `<b>${fmt(G.q.ans)}</b>`) : `${G.q.html} = <b>${fmt(G.q.ans)}</b>`;
     $("sol").innerHTML = shown;
-    $("corrTip").innerHTML = tipHTML(tipFor(G.q.op));
     $("correction").hidden = false;
     $("go").textContent = "Suivant";
     G.waiting = true;
@@ -672,21 +804,33 @@ function endGame() {
   const errs = g.items.filter((x) => !x.ok);
   $("errCard").hidden = !errs.length;
   $("errs").innerHTML = errs.map((x) => {
+    if (x.pick) {
+      const num = (a) => a.length ? a.map((i) => "n°" + (i + 1)).join(", ") : "aucune";
+      return `<li>${x.items.map((it, i) => `<div class="e-q">${i + 1}. ${it.html} ${it.bad ? `<b style="color:var(--bad)">✗</b>` : ""}</div>`).join("")}<div class="e-a">Ta réponse : <s>${num(x.chosen)}</s> · Fausses : <b>${num(x.ans)}</b></div></li>`;
+    }
     const q = x.hasSlot ? x.html : `${x.html} = ${SLOT}`;
     return `<li><div class="e-q">${q}</div><div class="e-a">Ta réponse : <s>${fmt(x.given)}</s> · Bonne réponse : <b>${fmt(x.ans)}</b></div></li>`;
   }).join("");
-  // Astuce sur l'opération la plus ratée
-  const miss = {}; errs.forEach((x) => { miss[x.op] = (miss[x.op] || 0) + 1; });
-  const worst = Object.keys(miss).sort((a, b) => miss[b] - miss[a])[0];
-  $("resTip").innerHTML = tipHTML(worst ? `<em>${OP_BY_ID[worst].label}.</em> ${tipFor(worst)}` : pick(GENERIC_TIPS));
+  const ordered = [...g.items.filter((x) => !x.ok), ...g.items.filter((x) => x.ok)];
+  $("tipsList").innerHTML = ordered.map((x) => {
+    const q = x.pick ? "Égalités fausses : repère les intrus" : (x.hasSlot ? x.html.replace(SLOT, `<b>${fmt(x.ans)}</b>`) : `${x.html} = <b>${fmt(x.ans)}</b>`);
+    return `<details class="tipitem"><summary><span class="mark ${x.ok ? "ok" : "ko"}">${x.ok ? "✓" : "✗"}</span><span class="tq">${q}</span></summary><div class="why">${x.why || ""}</div></details>`;
+  }).join("");
+  $("tipsCard").hidden = true; $("tipsBtn").textContent = "Astuces";
   show("results");
 }
 
 /* ---------- Événements ---------- */
+$("tipsBtn").onclick = () => {
+  const c = $("tipsCard"); c.hidden = !c.hidden;
+  $("tipsBtn").textContent = c.hidden ? "Astuces" : "Masquer les astuces";
+  if (!c.hidden) c.scrollIntoView({ behavior: "smooth", block: "start" });
+};
 $("start").onclick = startGame;
 $("again").onclick = startGame;
 $("menu").onclick = () => { show("home"); renderHome(); };
 $("quit").onclick = endGame;
+$("question").addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) togglePick(+b.dataset.i); });
 $("pad").addEventListener("click", (e) => { const b = e.target.closest("button[data-k]"); if (b) press(b.dataset.k); });
 document.addEventListener("keydown", (e) => {
   if (!G) { if (e.key === "Enter" && !$("results").hidden) startGame(); return; }
