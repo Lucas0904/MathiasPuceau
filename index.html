@@ -18,7 +18,6 @@
   --bg: #F4F1EA; --surface: #FFFFFF; --fg: #1F1C17; --muted: #6E675C; --line: #DDD6C8;
   --accent: #B4502A; --accent-fg: #FFFFFF; --accent-soft: #F5DDD2;
   --ok: #3F7A4E; --ok-soft: #DCEBDD; --bad: #A8322A; --bad-soft: #F6DAD6;
-  --veil: rgba(244, 241, 234, .82); --veil-strong: rgba(244, 241, 234, .93);
   --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
@@ -28,7 +27,6 @@
     --bg: #16140F; --surface: #211E18; --fg: #EFEAE0; --muted: #A59D90; --line: #38332A;
     --accent: #E88A62; --accent-fg: #1A110C; --accent-soft: #43271B;
     --ok: #82C18F; --ok-soft: #1F3324; --bad: #F08A7F; --bad-soft: #3F1F1B;
-    --veil: rgba(22, 20, 15, .78); --veil-strong: rgba(22, 20, 15, .92);
     color-scheme: dark;
   }
 }
@@ -36,7 +34,6 @@
   --bg: #16140F; --surface: #211E18; --fg: #EFEAE0; --muted: #A59D90; --line: #38332A;
   --accent: #E88A62; --accent-fg: #1A110C; --accent-soft: #43271B;
   --ok: #82C18F; --ok-soft: #1F3324; --bad: #F08A7F; --bad-soft: #3F1F1B;
-  --veil: rgba(22, 20, 15, .78); --veil-strong: rgba(22, 20, 15, .92);
   color-scheme: dark;
 }
 :root { --c1: #B4502A; --c2: #1D70B8; }
@@ -54,10 +51,6 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 [hidden] { display: none !important; }
 
-/* Photo de motivation en fond, voilée pour rester lisible */
-#bg { position: fixed; inset: 0; z-index: -2; background-size: cover; background-position: center 25%; }
-#veil { position: fixed; inset: 0; z-index: -1; background: var(--veil); transition: background .3s; }
-body.playing #veil { background: var(--veil-strong); }
 
 .screen {
   max-width: 560px; margin: 0 auto;
@@ -102,6 +95,13 @@ body.turb-on .game, .turb { animation: turb .55s ease-in-out; }
 @keyframes wobble { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
 @keyframes slam { 0% { opacity: 0; transform: scale(3.2) rotate(12deg); } 70% { opacity: 1; transform: scale(.92) rotate(12deg); } 100% { opacity: 1; transform: scale(1) rotate(12deg); } }
 @keyframes turb { 0%, 100% { transform: none; } 10% { transform: translate(-5px, 3px) rotate(-.4deg); } 25% { transform: translate(5px, -3px) rotate(.4deg); } 40% { transform: translate(-4px, 2px); } 60% { transform: translate(4px, -2px); } 80% { transform: translate(-2px, 1px); } }
+.maintabs { position: sticky; top: 8px; z-index: 6; margin: 0 0 14px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+.kpis { margin-bottom: 8px; }
+.oprow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; margin-bottom: 12px; font-size: 14px; }
+.oprow .nm { font-weight: 600; }
+.oprow .vals { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.oprow .track { grid-column: 1 / -1; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.oprow .track i { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
 .badge { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--accent); font-weight: 700; }
 .daily { border-color: var(--accent); }
 .daily .btn + .btn { margin-top: 8px; }
@@ -144,8 +144,6 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
 .hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
 .hist li { display: flex; justify-content: space-between; gap: 10px; }
 .hist .when { color: var(--muted); }
-.photo-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.thumb { width: 56px; height: 56px; border-radius: 12px; background: var(--bg) center/cover; border: 1px solid var(--line); flex: none; }
 .offline { font-size: 13px; color: var(--muted); text-align: center; margin: 14px 0 0; }
 
 /* Jeu */
@@ -221,14 +219,15 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
 </style>
 </head>
 <body>
-<div id="bg" aria-hidden="true"></div>
-<div id="veil" aria-hidden="true"></div>
 
 <!-- ACCUEIL -->
 <main id="home" class="screen">
   <p class="eyebrow">Entraînement</p>
   <h1>Calcul mental</h1>
   <p class="lede">Choisis tes opérations, ton niveau, et c'est parti.</p>
+  <div class="seg maintabs" id="mainTabs" role="tablist"></div>
+
+  <div id="tabPlay">
 
   <section class="card daily" id="dailyCard">
     <h2>Défi du jour <span class="badge" id="streakBadge"></span></h2>
@@ -279,12 +278,12 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
   <button class="btn secondary" id="psyBtn" type="button" style="margin-top:8px"></button>
   <p class="record" id="recordLine"></p>
 
-  <section class="card" id="weakCard" style="margin-top:16px" hidden>
-    <h2>Mes points faibles</h2>
-    <ul class="hist" id="weakList"></ul>
-    <button class="btn secondary" id="weakGo" type="button" style="margin-top:12px;min-height:46px;font-size:15px">S'entraîner sur ces points</button>
-  </section>
+  <p class="offline" id="offlineLine"></p>
+  </div>
 
+  <div id="tabStats" hidden>
+    <div class="kpis" id="kpiGrid"></div>
+    <div class="kpis" id="kpiGrid2"></div>
   <section class="card" id="progCard" hidden>
     <h2>Ma progression</h2>
     <p class="sub" style="margin-top:0">Précision (%)</p>
@@ -296,23 +295,28 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
     <details class="tbl"><summary>Voir les chiffres</summary><table id="progTable"></table></details>
   </section>
 
+
+    <section class="card" id="opsCard">
+      <h2>Par type de calcul</h2>
+      <div id="opBars"></div>
+      <button class="btn secondary" id="weakGo" type="button" style="margin-top:12px;min-height:46px;font-size:15px" hidden>S'entraîner sur mes points faibles</button>
+    </section>
+    <section class="card" id="recCard" hidden>
+      <h2>Mes records</h2>
+      <ul class="hist" id="recList"></ul>
+    </section>
+    <section class="card" id="dailyAllCard" hidden>
+      <h2>Défis du jour</h2>
+      <p class="level-desc" id="dailySum" style="margin:0 0 10px"></p>
+      <ul class="hist" id="dailyAll"></ul>
+    </section>
   <section class="card" id="histCard" hidden>
     <h2>Dernières séances</h2>
     <ul class="hist" id="hist"></ul>
   </section>
 
-  <section class="card">
-    <h2>Photo de motivation</h2>
-    <div class="photo-row">
-      <div class="thumb" id="thumb"></div>
-      <button class="chip" id="pickPhoto" type="button">Choisir une photo</button>
-      <button class="link-btn" id="removePhoto" type="button" hidden>Retirer</button>
-    </div>
-    <input type="file" id="photoInput" accept="image/*" hidden>
-    <p class="level-desc">La photo reste sur ce téléphone, elle n'est envoyée nulle part.</p>
-  </section>
-
-  <p class="offline" id="offlineLine"></p>
+    <p class="offline" id="statsEmpty" hidden>Pas encore de statistiques : joue une première séance !</p>
+  </div>
 </main>
 
 <!-- JEU -->
@@ -815,11 +819,6 @@ $("cMin").addEventListener("change", () => readCustom(true)); $("cSec").addEvent
 
 $("optSound").onclick = () => { settings.sound = settings.sound === false; saveSettings(); refreshHome(); if (settings.sound) sfx.ok(); };
 $("optWeak").onclick = () => { settings.weak = !settings.weak; saveSettings(); refreshHome(); };
-function renderWeak() {
-  const w = weakOps();
-  $("weakCard").hidden = !w.length;
-  $("weakList").innerHTML = w.map((x) => `<li><span>${OP_BY_ID[x.id].label}</span><span class="num">${Math.round(100 * x.rate)} % d'erreurs</span></li>`).join("");
-}
 $("weakGo").onclick = () => { const w = weakOps(); if (!w.length) return; settings.ops = w.map((x) => x.id); settings.weak = true; saveSettings(); renderOps(); refreshHome(); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
 /* Courbes de progression : une série par graphique, survol pour lire les valeurs */
@@ -853,6 +852,47 @@ function renderProgress() {
 
 function applyTheme() { if (settings.theme === "light" || settings.theme === "dark") document.documentElement.setAttribute("data-theme", settings.theme); else document.documentElement.removeAttribute("data-theme"); }
 applyTheme();
+
+/* ---------- Onglets Jouer / Stats ---------- */
+let mainTab = "play";
+function renderTabs() {
+  const box = $("mainTabs"); box.innerHTML = "";
+  [["play", "Jouer"], ["stats", "Stats"]].forEach(([k, l]) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = l; b.setAttribute("role", "tab");
+    b.setAttribute("aria-pressed", String(mainTab === k));
+    b.onclick = () => { mainTab = k; renderTabs(); window.scrollTo(0, 0); };
+    box.appendChild(b);
+  });
+  $("tabPlay").hidden = mainTab !== "play"; $("tabStats").hidden = mainTab !== "stats";
+  $("kpiGrid").parentNode; if (mainTab === "stats") renderStats();
+}
+function renderStats() {
+  const t = totals(), hist = store.get("history", []), recs = store.get("records", {}), d = store.get("daily", {}), sk = store.get("streak", { count: 0, best: 0 });
+  const empty = !t.calcs && !hist.length;
+  $("statsEmpty").hidden = !empty;
+  const acc = t.calcs ? Math.round(100 * t.correct / t.calcs) : 0, spd = t.calcs && t.ms ? Math.round(t.ms / t.calcs / 100) / 10 : 0;
+  const kpi = (v, l) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`;
+  $("kpiGrid").innerHTML = kpi(fmt(t.calcs), "Calculs") + kpi(t.calcs ? acc + " %" : "–", "Réussite") + kpi(spd ? fmt(spd) + " s" : "–", "Temps / calcul");
+  $("kpiGrid2").innerHTML = kpi(fmt(t.sessions || hist.length), "Séances") + kpi(currentStreak(), "Série (jours)") + kpi(sk.best || 0, "Meilleure série");
+  // par type de calcul
+  const rows = Object.keys(t.byOp).filter((o) => OP_BY_ID[o] && t.byOp[o].n > 0).map((o) => ({ id: o, n: t.byOp[o].n, ok: 1 - t.byOp[o].bad / t.byOp[o].n })).sort((a, b) => a.ok - b.ok);
+  $("opsCard").hidden = !rows.length;
+  $("opBars").innerHTML = rows.map((r) => `<div class="oprow"><span class="nm">${OP_BY_ID[r.id].label}</span><span class="vals">${Math.round(100 * r.ok)} % · ${r.n} calcul${r.n > 1 ? "s" : ""}</span><div class="track" role="img" aria-label="${Math.round(100 * r.ok)} % de réussite"><i style="width:${Math.max(2, Math.round(100 * r.ok))}%"></i></div></div>`).join("");
+  $("weakGo").hidden = !weakOps().length;
+  // records
+  const rk = Object.keys(recs).map((k) => ({ k, r: recs[k] })).sort((a, b) => b.r.date - a.r.date).slice(0, 8);
+  $("recCard").hidden = !rk.length;
+  $("recList").innerHTML = rk.map(({ k, r }) => { const [tm, ct, lv, ops] = k.split("|"); const sy = ops.split("+").map((o) => OP_BY_ID[o] ? OP_BY_ID[o].sym : "").join(" ");
+    return `<li><span>${LEVELS[+lv] ? LEVELS[+lv].name : ""} · ${sy} · ${+tm ? fmtTime(+tm * 1000) : ct + " calculs"}</span><span class="num">${describeRecord(r)}</span></li>`; }).join("");
+  // défis du jour
+  const dk = Object.keys(d).sort().reverse();
+  $("dailyAllCard").hidden = !dk.length;
+  if (dk.length) {
+    const best = dk.reduce((a, k) => (d[k].correct > d[a].correct ? k : a), dk[0]), avg = Math.round(dk.reduce((a, k) => a + d[k].correct, 0) / dk.length);
+    $("dailySum").textContent = `${dk.length} défi${dk.length > 1 ? "s" : ""} joué${dk.length > 1 ? "s" : ""} · moyenne ${avg} justes · meilleur : ${d[best].correct} le ${fmtDay(best)}`;
+    $("dailyAll").innerHTML = dk.slice(0, 14).map((k) => `<li><span>${fmtDay(k)}</span><span class="num">${d[k].correct} justes sur ${d[k].total}</span></li>`).join("");
+  }
+}
 
 function renderOps() {
   const box = $("ops"); box.innerHTML = "";
@@ -891,12 +931,12 @@ function refreshHome() {
   $("optSound").setAttribute("aria-pressed", String(settings.sound !== false));
   $("optWeak").setAttribute("aria-pressed", String(!!settings.weak));
   $("psyBtn").textContent = "Séance type PSY0 · " + fmtTime((settings.timer || 600) * 1000);
-  renderDaily(); renderWeak(); renderProgress();
+  renderDaily(); renderProgress(); if (mainTab === "stats") renderStats();
   const r = store.get("records", {})[recordKey()];
   $("recordLine").textContent = r ? "Record avec ces réglages : " + describeRecord(r) : "";
   const h = store.get("history", []);
   $("histCard").hidden = !h.length;
-  $("hist").innerHTML = h.slice(0, 5).map((s) =>
+  $("hist").innerHTML = h.slice(0, 10).map((s) =>
     `<li><span>${s.daily ? "Défi du jour" : s.psy0 ? "Séance PSY0 · " + LEVELS[s.level].name : LEVELS[s.level].name + " · " + s.ops.map((o) => OP_BY_ID[o] ? OP_BY_ID[o].sym : "").join(" ")}</span><span class="num">${s.correct}/${s.total} <span class="when">· ${new Date(s.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span></span></li>`).join("");
 }
 
@@ -989,7 +1029,21 @@ function hideOops() {
 $("oopsNext").onclick = () => { if (G && G.waiting) afterAnswer(); };
 
 /* ---------- Stats par type de calcul (points faibles) ---------- */
+let TOT = null;
+function totals() {
+  if (TOT) return TOT;
+  TOT = store.get("totals", null);
+  if (!TOT) {
+    const h = store.get("history", []), st = store.get("stats", {});
+    TOT = { calcs: h.reduce((a, x) => a + x.total, 0), correct: h.reduce((a, x) => a + x.correct, 0), ms: h.reduce((a, x) => a + (x.ms || 0), 0), sessions: h.length, byOp: {} };
+    Object.keys(st).forEach((o) => { TOT.byOp[o] = { n: Math.round(st[o].n), bad: Math.round(st[o].bad) }; });
+  }
+  return TOT;
+}
 function bump(op, ok) {
+  const t = totals(); t.calcs++; if (ok) t.correct++;
+  const b = t.byOp[op] || (t.byOp[op] = { n: 0, bad: 0 }); b.n++; if (!ok) b.bad++;
+  store.set("totals", t);
   const st = store.get("stats", {}), x = st[op] || { n: 0, bad: 0 };
   x.n = x.n * .97 + 1; x.bad = x.bad * .97 + (ok ? 0 : 1); st[op] = x; store.set("stats", st);
 }
@@ -1340,6 +1394,7 @@ function endGame() {
     const recs = store.get("records", {}); const key = recordKey({ ops: g.ops, level: g.level, timer: g.timer, count: g.count });
     if (better(session, recs[key])) { newRec = !!recs[key] || true; recs[key] = session; store.set("records", recs); }
   }
+  { const t = totals(); t.ms += ms; t.sessions++; store.set("totals", t); }
   const hist = store.get("history", []); hist.unshift(session); store.set("history", hist.slice(0, 30));
 
   const acc = Math.round(100 * g.correct / total);
@@ -1402,33 +1457,6 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "Escape") endGame();
 });
 
-/* ---------- Photo de motivation ---------- */
-function applyPhoto() {
-  const data = store.get("photo", null);
-  const url = data || "christine.jpg";
-  const img = new Image();
-  img.onload = () => { $("bg").style.backgroundImage = `url("${url}")`; $("thumb").style.backgroundImage = `url("${url}")`; };
-  img.onerror = () => { $("bg").style.backgroundImage = ""; $("thumb").style.backgroundImage = ""; };
-  img.src = url;
-  $("removePhoto").hidden = !data;
-}
-$("pickPhoto").onclick = () => $("photoInput").click();
-$("removePhoto").onclick = () => { try { localStorage.removeItem("cm.photo"); } catch (e) {} applyPhoto(); };
-$("photoInput").onchange = (e) => {
-  const f = e.target.files && e.target.files[0]; if (!f) return;
-  const img = new Image(); const url = URL.createObjectURL(f);
-  img.onload = () => {
-    // Réduit la photo pour qu'elle tienne dans le stockage du navigateur
-    const max = 1200, s = Math.min(1, max / Math.max(img.width, img.height));
-    const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-    URL.revokeObjectURL(url);
-    if (!store.set("photo", c.toDataURL("image/jpeg", .82))) alert("La photo n'a pas pu être enregistrée sur ce téléphone.");
-    applyPhoto();
-  };
-  img.src = url; e.target.value = "";
-};
-
 /* ---------- Hors ligne ---------- */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").then(() => {
@@ -1436,8 +1464,8 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   }).catch(() => {});
 }
 
+renderTabs();
 renderHome();
-applyPhoto();
 renderDuel();
 if (duel) duelConnect();
 </script>
