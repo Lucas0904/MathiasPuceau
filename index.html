@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calcul mental</title>
+<meta name="description" content="Entraînement au calcul mental : opérations, niveaux, timer, égalités type PSY0, astuces.">
+<meta name="theme-color" content="#F4F1EA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16140F" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Calcul">
+<style>
+/* Aucune ressource externe : l'appli doit marcher hors ligne */
+:root {
+  --bg: #F4F1EA; --surface: #FFFFFF; --fg: #1F1C17; --muted: #6E675C; --line: #DDD6C8;
+  --accent: #B4502A; --accent-fg: #FFFFFF; --accent-soft: #F5DDD2;
+  --ok: #3F7A4E; --ok-soft: #DCEBDD; --bad: #A8322A; --bad-soft: #F6DAD6;
+  --veil: rgba(244, 241, 234, .82); --veil-strong: rgba(244, 241, 234, .93);
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16140F; --surface: #211E18; --fg: #EFEAE0; --muted: #A59D90; --line: #38332A;
+    --accent: #E88A62; --accent-fg: #1A110C; --accent-soft: #43271B;
+    --ok: #82C18F; --ok-soft: #1F3324; --bad: #F08A7F; --bad-soft: #3F1F1B;
+    --veil: rgba(22, 20, 15, .78); --veil-strong: rgba(22, 20, 15, .92);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16140F; --surface: #211E18; --fg: #EFEAE0; --muted: #A59D90; --line: #38332A;
+  --accent: #E88A62; --accent-fg: #1A110C; --accent-soft: #43271B;
+  --ok: #82C18F; --ok-soft: #1F3324; --bad: #F08A7F; --bad-soft: #3F1F1B;
+  --veil: rgba(22, 20, 15, .78); --veil-strong: rgba(22, 20, 15, .92);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.45;
+  min-height: 100vh; min-height: 100dvh;
+}
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+/* Photo de motivation en fond, voilée pour rester lisible */
+#bg { position: fixed; inset: 0; z-index: -2; background-size: cover; background-position: center 25%; }
+#veil { position: fixed; inset: 0; z-index: -1; background: var(--veil); transition: background .3s; }
+body.playing #veil { background: var(--veil-strong); }
+
+.screen {
+  max-width: 560px; margin: 0 auto;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.num { font-variant-numeric: tabular-nums; }
+.frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.05; vertical-align: middle; font-size: .8em; margin: 0 .08em; }
+.frac > span:first-child { border-bottom: .07em solid currentColor; padding: 0 .2em .04em; }
+.frac > span:last-child { padding: .04em .2em 0; }
+
+/* Accueil */
+.eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-height: 1.05; margin: 4px 0 6px; }
+.lede { margin: 0 0 20px; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+.card h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card h2 .link-btn { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--bg); border-radius: 99px; padding: 8px 14px; min-height: 42px; font-size: 15px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.chip .sym { font-weight: 700; min-width: 1ch; text-align: center; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.seg button { border: 0; background: transparent; border-radius: 9px; min-height: 40px; font-size: 14px; font-weight: 500; padding: 6px 4px; }
+.seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.15); color: var(--accent); font-weight: 700; }
+.sub { margin: 12px 0 6px; font-size: 14px; color: var(--muted); }
+.level-desc { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.btn { min-height: 54px; width: 100%; border: 0; border-radius: 14px; background: var(--accent); color: var(--accent-fg); font-weight: 700; font-size: 18px; padding: 12px 16px; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.secondary { background: var(--surface); color: var(--fg); border: 1px solid var(--line); font-weight: 600; font-size: 16px; }
+.link-btn { background: none; border: 0; padding: 6px 2px; font-size: 14px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.warn { color: var(--bad); font-size: 14px; margin: 8px 0 0; }
+.tip { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 15px; }
+.tip b { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; color: var(--accent); }
+.record { font-size: 14px; color: var(--muted); margin: 10px 0 0; text-align: center; }
+.hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+.hist li { display: flex; justify-content: space-between; gap: 10px; }
+.hist .when { color: var(--muted); }
+.photo-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.thumb { width: 56px; height: 56px; border-radius: 12px; background: var(--bg) center/cover; border: 1px solid var(--line); flex: none; }
+.offline { font-size: 13px; color: var(--muted); text-align: center; margin: 14px 0 0; }
+
+/* Jeu */
+.game { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.icon-btn { width: 44px; height: 44px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; padding: 0; flex: none; }
+.icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.stat { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 17px; }
+.stat small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; }
+.stats { display: flex; gap: 22px; text-align: center; }
+.timebar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 12px; }
+.timebar > i { display: block; height: 100%; background: var(--accent); width: 100%; }
+.timebar.low > i { background: var(--bad); }
+.stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; padding: 18px 0; min-height: 200px; text-align: center; }
+.kind { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-weight: 600; }
+.q { font-family: var(--font-display); font-size: clamp(34px, 11vw, 56px); line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.q.long { font-size: clamp(26px, 7.5vw, 40px); }
+.slot { display: inline-block; min-width: 1.3em; padding: 0 .15em; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
+.answer { min-height: 64px; min-width: 60%; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; display: grid; place-items: center; padding: 4px 16px; transition: border-color .15s, background .15s; }
+.answer.empty::after { content: "…"; color: var(--muted); font-weight: 400; }
+.answer.ok { border-color: var(--ok); background: var(--ok-soft); }
+.answer.bad { border-color: var(--bad); background: var(--bad-soft); text-decoration: line-through; text-decoration-thickness: 2px; }
+.correction { width: 100%; display: grid; gap: 10px; text-align: left; }
+.correction .sol { font-size: 18px; text-align: center; }
+.correction .sol b { color: var(--ok); font-size: 26px; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pad button { min-height: 58px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pad button:active { background: var(--accent-soft); }
+.pad .go { grid-column: 1 / -1; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-size: 18px; font-weight: 700; }
+.pad .wide { grid-column: span 3; }
+
+/* Résultats */
+.big { font-family: var(--font-display); font-size: 72px; line-height: 1; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.big small { font-size: 32px; color: var(--muted); }
+.res-head { text-align: center; padding: 10px 0 18px; }
+.res-head .msg { font-size: 18px; margin: 6px 0 0; }
+.res-head .newrec { display: inline-block; margin-top: 10px; background: var(--ok-soft); color: var(--ok); font-weight: 700; padding: 6px 12px; border-radius: 99px; font-size: 14px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; }
+.kpi b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 12px; color: var(--muted); }
+.errs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.errs li { border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.errs li:last-child { border-bottom: 0; padding-bottom: 0; }
+.errs .e-q { font-size: 18px; font-variant-numeric: tabular-nums; }
+.errs .e-a { font-size: 14px; color: var(--muted); }
+.errs .e-a s { color: var(--bad); }
+.errs .e-a b { color: var(--ok); }
+.actions { display: grid; gap: 8px; margin-top: 16px; }
+
+@keyframes shake { 0%,100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.shake { animation: shake .25s; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div id="bg" aria-hidden="true"></div>
+<div id="veil" aria-hidden="true"></div>
+
+<!-- ACCUEIL -->
+<main id="home" class="screen">
+  <p class="eyebrow">Entraînement</p>
+  <h1>Calcul mental</h1>
+  <p class="lede">Choisis tes opérations, ton niveau, et c'est parti.</p>
+
+  <section class="card">
+    <h2>Opérations <button class="link-btn" id="allOps" type="button">Tout cocher</button></h2>
+    <div class="chips" id="ops"></div>
+    <p class="warn" id="opsWarn" hidden>Choisis au moins une opération.</p>
+  </section>
+
+  <section class="card">
+    <h2>Niveau</h2>
+    <div class="seg" id="levels"></div>
+    <p class="level-desc" id="levelDesc"></p>
+  </section>
+
+  <section class="card">
+    <h2>Timer</h2>
+    <div class="seg" id="timers"></div>
+    <div id="countBox">
+      <p class="sub">Nombre de calculs</p>
+      <div class="seg" id="counts"></div>
+    </div>
+  </section>
+
+  <button class="btn" id="start" type="button">Commencer</button>
+  <p class="record" id="recordLine"></p>
+
+  <section class="card" style="margin-top:16px">
+    <div class="tip" id="homeTip"></div>
+  </section>
+
+  <section class="card" id="histCard" hidden>
+    <h2>Dernières séances</h2>
+    <ul class="hist" id="hist"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Photo de motivation</h2>
+    <div class="photo-row">
+      <div class="thumb" id="thumb"></div>
+      <button class="chip" id="pickPhoto" type="button">Choisir une photo</button>
+      <button class="link-btn" id="removePhoto" type="button" hidden>Retirer</button>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" hidden>
+    <p class="level-desc">La photo reste sur ce téléphone, elle n'est envoyée nulle part.</p>
+  </section>
+
+  <p class="offline" id="offlineLine"></p>
+</main>
+
+<!-- JEU -->
+<main id="game" class="screen game" hidden>
+  <div class="topbar">
+    <button class="icon-btn" id="quit" type="button" aria-label="Terminer la séance">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="stats">
+      <div class="stat"><span id="sProg">0</span><small id="sProgLbl">Calcul</small></div>
+      <div class="stat"><span id="sOk">0</span><small>Justes</small></div>
+      <div class="stat" id="sTimeBox"><span id="sTime">1:00</span><small>Temps</small></div>
+    </div>
+    <span style="width:44px"></span>
+  </div>
+  <div class="timebar" id="timebar"><i id="timefill"></i></div>
+
+  <div class="stage">
+    <div class="kind" id="kind"></div>
+    <div class="q" id="question"></div>
+    <div class="answer empty" id="answer" aria-live="polite"></div>
+    <div class="correction" id="correction" hidden>
+      <div class="sol" id="sol"></div>
+      <div class="tip" id="corrTip"></div>
+    </div>
+  </div>
+
+  <div class="pad" id="pad">
+    <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+    <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+    <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+    <button type="button" data-k=",">,</button><button type="button" data-k="0">0</button><button type="button" data-k="del" aria-label="Effacer">⌫</button>
+    <button type="button" class="go" id="go" data-k="ok">Valider</button>
+  </div>
+</main>
+
+<!-- RÉSULTATS -->
+<main id="results" class="screen" hidden>
+  <div class="res-head">
+    <p class="eyebrow" id="resLabel">Résultat</p>
+    <div class="big" id="resScore"></div>
+    <p class="msg" id="resMsg"></p>
+    <span class="newrec" id="resRec" hidden>Nouveau record !</span>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><b id="kAcc"></b><span>Précision</span></div>
+    <div class="kpi"><b id="kAvg"></b><span>Par calcul</span></div>
+    <div class="kpi"><b id="kTime"></b><span>Temps total</span></div>
+  </div>
+  <section class="card" id="errCard">
+    <h2>Corrections</h2>
+    <ul class="errs" id="errs"></ul>
+  </section>
+  <section class="card"><div class="tip" id="resTip"></div></section>
+  <div class="actions">
+    <button class="btn" id="again" type="button">Rejouer</button>
+    <button class="btn secondary" id="menu" type="button">Changer les réglages</button>
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ---------- Outils ---------- */
+const $ = (id) => document.getElementById(id);
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const round4 = (x) => Math.round(x * 10000) / 10000;
+const MINUS = "−", TIMES = "×", DIV = "÷";
+function fmt(x) {
+  x = round4(x);
+  const neg = x < 0; x = Math.abs(x);
+  let [i, d] = String(x).split(".");
+  if (i.length > 4) i = i.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return (neg ? MINUS : "") + i + (d ? "," + d : "");
+}
+const frac = (n, d) => `<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+const SLOT = '<span class="slot">?</span>';
+const store = {
+  get(k, def) { try { const v = localStorage.getItem("cm." + k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } },
+  set(k, v) { try { localStorage.setItem("cm." + k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+};
+
+/* ---------- Niveaux ---------- */
+const LEVELS = [
+  { id: 0, name: "Puceau", desc: "Pour débuter : tables jusqu'à 5, petits nombres, fractions simples." },
+  { id: 1, name: "Intermédiaire", desc: "Toutes les tables, nombres à deux chiffres." },
+  { id: 2, name: "Difficile", desc: "Trois chiffres, décimaux, pourcentages variés. Niveau PSY0." },
+  { id: 3, name: "Expert", desc: "Grands nombres, deux chiffres × deux chiffres, longues chaînes." }
+];
+
+/* ---------- Générateurs : chacun renvoie { html, ans } ---------- */
+const GEN = {
+  add(l) {
+    const r = [[1, 20, 1, 20], [10, 99, 10, 99], [100, 999, 10, 999], [1000, 9999, 100, 9999]][l];
+    const a = rnd(r[0], r[1]), b = rnd(r[2], r[3]);
+    return { html: `${fmt(a)} + ${fmt(b)}`, ans: a + b };
+  },
+  sub(l) {
+    const r = [[5, 20, 1], [20, 99, 10], [100, 999, 10], [1000, 9999, 100]][l];
+    const a = rnd(r[0], r[1]), b = rnd(r[2], a - 1);
+    return { html: `${fmt(a)} ${MINUS} ${fmt(b)}`, ans: a - b };
+  },
+  mul(l) {
+    let a, b;
+    if (l === 0) { a = rnd(2, 5); b = rnd(1, 10); }
+    else if (l === 1) { a = rnd(2, 10); b = rnd(2, 10); }
+    else if (l === 2) { a = rnd(11, 99); b = rnd(2, 9); }
+    else { a = rnd(11, 99); b = rnd(11, 30); }
+    if (Math.random() < .5) [a, b] = [b, a];
+    return { html: `${a} ${TIMES} ${b}`, ans: a * b };
+  },
+  div(l) {
+    const r = [[2, 5, 1, 10], [2, 10, 2, 12], [3, 15, 11, 30], [11, 25, 12, 50]][l];
+    const b = rnd(r[0], r[1]), q = rnd(r[2], r[3]);
+    return { html: `${fmt(b * q)} ${DIV} ${b}`, ans: q };
+  },
+  sq(l) {
+    const r = [[1, 10], [11, 15], [11, 25], [21, 60]][l];
+    const a = rnd(r[0], r[1]);
+    return { html: `${a}<sup>2</sup>`, ans: a * a };
+  },
+  frac(l) {
+    let n, d, k;
+    if (l === 0) { d = pick([2, 3, 4, 10]); n = d === 4 ? pick([1, 3]) : 1; k = rnd(1, 10); }
+    else if (l === 1) { d = rnd(2, 10); n = rnd(1, d - 1); k = rnd(2, 12); }
+    else if (l === 2) { d = rnd(3, 12); n = rnd(1, d - 1); k = rnd(5, 20); }
+    else { d = rnd(3, 16); n = rnd(1, 2 * d - 1); if (n === d) n++; k = rnd(6, 25); }
+    const g = gcd(n, d); n /= g; d /= g;
+    return { html: `${frac(n, d)} de ${fmt(d * k)}`, ans: n * k };
+  },
+  pct(l) {
+    let p, x;
+    if (l === 0) { p = pick([10, 50, 25]); x = p === 25 ? 4 * rnd(1, 25) : 10 * rnd(1, 20); if (p === 50) x = 2 * rnd(2, 50); }
+    else if (l === 1) { p = 5 * rnd(1, 19); x = 20 * rnd(1, 15); }
+    else if (l === 2) { p = pick([1, 2, 5, 15, 20, 30, 40, 60, 70, 75, 80, 90, 120, 150]); x = 10 * rnd(2, 60); }
+    else { p = rnd(1, 150); x = 10 * rnd(3, 99); }
+    return { html: `${p} % de ${fmt(x)}`, ans: p * x / 100 };
+  },
+  dec(l) {
+    const t = (v) => v / 10, h = (v) => v / 100;
+    if (l === 0) {
+      const a = rnd(1, 99), b = rnd(1, 99);
+      return { html: `${fmt(t(a))} + ${fmt(t(b))}`, ans: t(a + b) };
+    }
+    if (l === 1) {
+      const kind = rnd(0, 2);
+      if (kind === 0) { const a = rnd(100, 999), b = rnd(10, a - 1); return { html: `${fmt(h(a))} ${MINUS} ${fmt(h(b))}`, ans: h(a - b) }; }
+      if (kind === 1) { const a = rnd(11, 999), m = pick([10, 100]); return Math.random() < .5 ? { html: `${fmt(h(a))} ${TIMES} ${m}`, ans: a * m / 100 } : { html: `${fmt(a)} ${DIV} ${m}`, ans: a / m }; }
+      const a = 2 * rnd(3, 60); return { html: `0,5 ${TIMES} ${a}`, ans: a / 2 };
+    }
+    if (l === 2) {
+      const kind = rnd(0, 2);
+      if (kind === 0) { const a = rnd(11, 99), b = rnd(2, 12); return { html: `${fmt(t(a))} ${TIMES} ${b}`, ans: a * b / 10 }; }
+      if (kind === 1) { const a = rnd(2, 40), d = pick([0.5, 0.25]); return { html: `${a} ${DIV} ${fmt(d)}`, ans: a / d }; }
+      const a = rnd(101, 999), b = rnd(11, 99); return { html: `${fmt(h(a))} + ${fmt(t(b))}`, ans: (a + 10 * b) / 100 };
+    }
+    const kind = rnd(0, 2);
+    if (kind === 0) { const a = rnd(2, 15), b = rnd(2, 15); return { html: `${fmt(t(a))} ${TIMES} ${fmt(t(b))}`, ans: a * b / 100 }; }
+    if (kind === 1) { const b = rnd(2, 9), q = rnd(2, 30); return { html: `${fmt(t(b * q))} ${DIV} ${fmt(t(b))}`, ans: q }; }
+    const a = rnd(11, 99), b = rnd(11, 99); return { html: `${fmt(t(a))} ${TIMES} ${b}`, ans: a * b / 10 };
+  },
+  /* Opérations longues : une chaîne de + et − qui ne passe jamais sous zéro */
+  chain(l) {
+    const cfg = [[4, 5, 20, 1, 9], [5, 30, 99, 5, 30], [6, 100, 600, 10, 99], [8, 200, 999, 10, 199]][l];
+    const [n, s0, s1, m0, m1] = cfg;
+    let total = rnd(s0, s1), html = fmt(total);
+    for (let i = 1; i < n; i++) {
+      const v = rnd(m0, m1);
+      const plus = total - v < 0 || Math.random() < .5;
+      total += plus ? v : -v;
+      html += ` ${plus ? "+" : MINUS} ${fmt(v)}`;
+    }
+    return { html, ans: total, long: true };
+  },
+  /* Égalités à trou, façon PSY0 : 24 ÷ 2 = 2 × ? */
+  eq(l) {
+    const P = [[2, 5, 2, 6, 5], [2, 9, 2, 10, 9], [2, 12, 3, 15, 12], [3, 15, 6, 30, 20]][l];
+    const V = rnd(P[0], P[1]) * rnd(P[2], P[3]);
+    const forms = l === 0 ? ["mul", "add", "div"] : ["mul", "div", "add", "sub"];
+    const make = (f) => {
+      if (f === "mul") {
+        const ds = []; for (let d = 2; d <= V / 2; d++) if (V % d === 0) ds.push(d);
+        if (!ds.length) return null;
+        const d = pick(ds); return [d, TIMES, V / d];
+      }
+      if (f === "div") { const k = rnd(2, P[4]); return [V * k, DIV, k]; }
+      if (f === "add") { const x = rnd(1, V - 1); return [x, "+", V - x]; }
+      const y = rnd(1, Math.max(2, Math.min(V, 50))); return [V + y, MINUS, y];
+    };
+    let L = null, R = null, guard = 0;
+    while ((!L || !R || (L[0] === R[0] && L[1] === R[1])) && guard++ < 50) {
+      L = make(pick(forms)); R = make(pick(forms));
+    }
+    const hideSide = Math.random() < .7 ? 1 : 0, hidePos = Math.random() < .5 ? 0 : 2;
+    const sides = [L, R];
+    const ans = sides[hideSide][hidePos];
+    const render = (s, i) => s.map((v, j) => (j === 1 ? v : (i === hideSide && j === hidePos ? SLOT : fmt(v)))).join(" ");
+    return { html: `${render(L, 0)} = ${render(R, 1)}`, ans, hasSlot: true };
+  }
+};
+function gcd(a, b) { while (b) [a, b] = [b, a % b]; return a; }
+
+const OPS = [
+  { id: "add", label: "Addition", sym: "+" },
+  { id: "sub", label: "Soustraction", sym: MINUS },
+  { id: "mul", label: "Multiplication", sym: TIMES },
+  { id: "div", label: "Division", sym: DIV },
+  { id: "chain", label: "Opérations longues", sym: "…" },
+  { id: "eq", label: "Égalités (PSY0)", sym: "=" },
+  { id: "frac", label: "Fractions", sym: "½" },
+  { id: "pct", label: "Pourcentages", sym: "%" },
+  { id: "dec", label: "Décimaux", sym: "," },
+  { id: "sq", label: "Carrés", sym: "x²" }
+];
+const OP_BY_ID = Object.fromEntries(OPS.map((o) => [o.id, o]));
+
+/* ---------- Astuces ---------- */
+const TIPS = {
+  add: [
+    "Pour ajouter 9, ajoute 10 puis enlève 1. Pour ajouter 99, ajoute 100 puis enlève 1.",
+    "Additionne de gauche à droite : 47 + 38, c'est 70 + 15 = 85.",
+    "Cherche les compléments à 10 ou à 100 : 64 + 36 = 100.",
+    "Arrondis puis corrige : 298 + 145 = 300 + 145 − 2 = 443."
+  ],
+  sub: [
+    "Pour enlever 9, enlève 10 puis rajoute 1.",
+    "Compte « à trous » : 83 − 47, de 47 à 50 il y a 3, de 50 à 83 il y a 33, donc 36.",
+    "Décaler les deux nombres ne change pas l'écart : 82 − 39 = 83 − 40 = 43."
+  ],
+  mul: [
+    "× 5 : multiplie par 10 puis divise par 2. 48 × 5 = 480 ÷ 2 = 240.",
+    "× 9 : multiplie par 10 puis enlève le nombre. 37 × 9 = 370 − 37 = 333.",
+    "× 11 sur deux chiffres : écarte-les et mets leur somme au milieu. 34 × 11 = 374.",
+    "Décompose : 23 × 7 = 20 × 7 + 3 × 7 = 140 + 21 = 161.",
+    "Double et moitié : 16 × 25 = 8 × 50 = 4 × 100 = 400.",
+    "× 4, c'est doubler deux fois. × 8, c'est doubler trois fois."
+  ],
+  div: [
+    "Pense à l'envers : 72 ÷ 8, c'est « 8 fois combien font 72 ? ».",
+    "÷ 5 : multiplie par 2 puis divise par 10. 135 ÷ 5 = 270 ÷ 10 = 27.",
+    "Simplifie avant : 84 ÷ 12 = 42 ÷ 6 = 7.",
+    "Découpe le dividende : 156 ÷ 12 = 120 ÷ 12 + 36 ÷ 12 = 10 + 3 = 13."
+  ],
+  sq: [
+    "Un nombre qui finit par 5 : (a5)² = a × (a+1) suivi de 25. 35² = 3 × 4 = 12, donc 1225.",
+    "Près d'une dizaine : 49² = 50² − 2 × 50 + 1 = 2500 − 100 + 1 = 2401.",
+    "(a + b)² = a² + 2ab + b² : 23² = 400 + 120 + 9 = 529."
+  ],
+  frac: [
+    "Divise d'abord par le dénominateur, puis multiplie par le numérateur : les trois quarts de 48, c'est 48 ÷ 4 = 12, puis 12 × 3 = 36.",
+    "La moitié d'un quart, c'est un huitième : divise deux fois par 2 puis encore par 2.",
+    "Trois quarts = un entier moins un quart : 3 quarts de 80 = 80 − 20 = 60."
+  ],
+  pct: [
+    "10 % = diviser par 10. 5 % = la moitié de 10 %. 1 % = diviser par 100.",
+    "x % de y = y % de x : 8 % de 50 = 50 % de 8 = 4.",
+    "Construis à partir de 10 % : 35 % de 60 = 3 × 6 + 3 = 21.",
+    "25 % = un quart, 75 % = trois quarts, 20 % = un cinquième."
+  ],
+  dec: [
+    "× 0,5 = diviser par 2. ÷ 0,5 = multiplier par 2. ÷ 0,25 = multiplier par 4.",
+    "Calcule sans la virgule puis replace-la : 0,3 × 1,2 → 3 × 12 = 36 → deux chiffres après la virgule → 0,36.",
+    "Aligne les virgules dans ta tête : 2,45 + 1,6 = 2,45 + 1,60 = 4,05."
+  ],
+  chain: [
+    "Regroupe les + d'un côté, les − de l'autre, puis fais une seule soustraction.",
+    "Cherche les paires qui s'annulent ou font un compte rond : + 21 − 10 + 78… repère 22 + 78 = 100.",
+    "Garde un total courant et répète-le dans ta tête à chaque étape."
+  ],
+  eq: [
+    "Calcule d'abord le côté complet, puis résous l'autre : 24 ÷ 2 = 12, donc 2 × ? = 12, ? = 6.",
+    "Si le trou est dans une division, ? ÷ 4 = 9 donne ? = 36 : on remonte avec l'opération inverse.",
+    "Si le trou est dans une soustraction, 50 − ? = 32 donne ? = 50 − 32 = 18."
+  ]
+};
+const GENERIC_TIPS = [
+  "Vise la régularité plutôt que la vitesse : la vitesse vient toute seule.",
+  "Dis le calcul dans ta tête avec des mots, ça aide à ne pas perdre le fil.",
+  "Estime d'abord l'ordre de grandeur : ça permet de repérer une réponse absurde."
+];
+const tipFor = (op) => pick(TIPS[op] || GENERIC_TIPS);
+const tipHTML = (t) => `<b>Astuce</b>${t}`;
+
+/* ---------- Réglages ---------- */
+const TIMERS = [{ v: 0, l: "Sans" }, { v: 60, l: "1 min" }, { v: 120, l: "2 min" }, { v: 300, l: "5 min" }];
+const COUNTS = [{ v: 10, l: "10" }, { v: 20, l: "20" }, { v: 50, l: "50" }, { v: 0, l: "∞" }];
+const settings = Object.assign({ ops: ["add", "sub", "mul", "div"], level: 1, timer: 60, count: 20 }, store.get("settings", {}));
+settings.ops = settings.ops.filter((o) => OP_BY_ID[o]);
+
+function segment(el, items, key, onChange) {
+  el.innerHTML = "";
+  items.forEach((it) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = it.l;
+    b.setAttribute("aria-pressed", String(settings[key] === it.v));
+    b.onclick = () => { settings[key] = it.v; saveSettings(); segment(el, items, key, onChange); onChange && onChange(); };
+    el.appendChild(b);
+  });
+}
+function renderOps() {
+  const box = $("ops"); box.innerHTML = "";
+  OPS.forEach((o) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip";
+    b.innerHTML = `<span class="sym">${o.sym}</span>${o.label}`;
+    b.setAttribute("aria-pressed", String(settings.ops.includes(o.id)));
+    b.onclick = () => {
+      settings.ops = settings.ops.includes(o.id) ? settings.ops.filter((x) => x !== o.id) : [...settings.ops, o.id];
+      saveSettings(); renderOps(); refreshHome();
+    };
+    box.appendChild(b);
+  });
+  $("allOps").textContent = settings.ops.length === OPS.length ? "Tout décocher" : "Tout cocher";
+}
+$("allOps").onclick = () => {
+  settings.ops = settings.ops.length === OPS.length ? [] : OPS.map((o) => o.id);
+  saveSettings(); renderOps(); refreshHome();
+};
+function saveSettings() { store.set("settings", settings); }
+
+function renderHome() {
+  renderOps();
+  segment($("levels"), LEVELS.map((x) => ({ v: x.id, l: x.name })), "level", refreshHome);
+  segment($("timers"), TIMERS, "timer", refreshHome);
+  segment($("counts"), COUNTS, "count", refreshHome);
+  refreshHome();
+  const ops = settings.ops.length ? settings.ops : Object.keys(TIPS);
+  $("homeTip").innerHTML = tipHTML(tipFor(pick(ops)));
+}
+function refreshHome() {
+  $("levelDesc").textContent = LEVELS[settings.level].desc;
+  $("countBox").hidden = settings.timer !== 0;
+  const none = settings.ops.length === 0;
+  $("opsWarn").hidden = !none; $("start").disabled = none;
+  const r = store.get("records", {})[recordKey()];
+  $("recordLine").textContent = r ? "Record avec ces réglages : " + describeRecord(r) : "";
+  const h = store.get("history", []);
+  $("histCard").hidden = !h.length;
+  $("hist").innerHTML = h.slice(0, 5).map((s) =>
+    `<li><span>${LEVELS[s.level].name} · ${s.ops.map((o) => OP_BY_ID[o] ? OP_BY_ID[o].sym : "").join(" ")}</span><span class="num">${s.correct}/${s.total} <span class="when">· ${new Date(s.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span></span></li>`).join("");
+}
+
+/* ---------- Records & historique ---------- */
+function recordKey(s = settings) { return [s.timer, s.timer ? 0 : s.count, s.level, [...s.ops].sort().join("+")].join("|"); }
+function describeRecord(r) { return r.timer ? `${r.correct} justes en ${fmtTime(r.timer * 1000)}` : `${r.correct}/${r.total} en ${fmtTime(r.ms)}`; }
+function better(a, b) { // a meilleur que b ?
+  if (!b) return true;
+  if (a.correct !== b.correct) return a.correct > b.correct;
+  return !a.timer && a.ms < b.ms;
+}
+function fmtTime(ms) { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+
+/* ---------- Partie ---------- */
+let G = null, tick = null;
+function show(id) {
+  ["home", "game", "results"].forEach((x) => { $(x).hidden = x !== id; });
+  document.body.classList.toggle("playing", id === "game");
+  window.scrollTo(0, 0);
+}
+function startGame() {
+  if (!settings.ops.length) return;
+  G = { ops: [...settings.ops], level: settings.level, timer: settings.timer, count: settings.timer ? 0 : settings.count,
+        items: [], correct: 0, start: performance.now(), input: "", q: null, waiting: false, last: "" };
+  $("sTimeBox").hidden = false;
+  $("timebar").hidden = !G.timer;
+  $("sProgLbl").textContent = G.count ? "Calcul" : "Calculs";
+  show("game");
+  nextQuestion();
+  clearInterval(tick); tick = setInterval(updateClock, 200); updateClock();
+}
+function updateClock() {
+  if (!G) return;
+  const el = performance.now() - G.start;
+  if (G.timer) {
+    const left = G.timer * 1000 - el;
+    $("sTime").textContent = fmtTime(left + 999);
+    $("timefill").style.width = Math.max(0, left / (G.timer * 10)) + "%";
+    $("timebar").classList.toggle("low", left < 10000);
+    if (left <= 0) endGame();
+  } else {
+    $("sTime").textContent = fmtTime(el);
+  }
+}
+function nextQuestion() {
+  let q, op, guard = 0;
+  do { op = pick(G.ops); q = GEN[op](G.level); } while (q.html === G.last && guard++ < 20);
+  q.op = op; q.ans = round4(q.ans); q.t0 = performance.now();
+  G.q = q; G.last = q.html; G.input = ""; G.waiting = false;
+  $("kind").textContent = OP_BY_ID[op].label;
+  $("question").innerHTML = q.hasSlot ? q.html : `${q.html} = ${SLOT}`;
+  $("question").classList.toggle("long", !!q.long || q.html.length > 60);
+  $("correction").hidden = true;
+  $("go").textContent = "Valider";
+  const done = G.items.length;
+  $("sProg").textContent = G.count ? `${done + 1}/${G.count}` : String(done);
+  $("sOk").textContent = String(G.correct);
+  renderAnswer();
+}
+function renderAnswer(state) {
+  const a = $("answer");
+  a.textContent = G.input;
+  a.className = "answer" + (G.input ? "" : " empty") + (state ? " " + state : "");
+}
+function parseInput(s) { if (!s || s === ",") return NaN; return Number(s.replace(",", ".")); }
+function press(k) {
+  if (!G) return;
+  if (G.waiting) { if (k === "ok") afterAnswer(); return; }
+  if (k === "del") G.input = G.input.slice(0, -1);
+  else if (k === "ok") return submit(false);
+  else if (k === ",") { if (!G.input.includes(",") && G.input.length < 10) G.input = (G.input || "0") + ","; }
+  else if (G.input.length < 10) G.input = G.input === "0" ? k : G.input + k;
+  renderAnswer();
+  // Validation automatique dès que la réponse juste est tapée en entier
+  if (k !== "del" && k !== "," && parseInput(G.input) === G.q.ans && G.input.replace(",", "").length >= fmt(G.q.ans).replace(/[, ]/g, "").length) submit(true);
+}
+function submit() {
+  const v = parseInput(G.input);
+  if (Number.isNaN(v)) { $("answer").classList.add("shake"); setTimeout(() => $("answer").classList.remove("shake"), 260); return; }
+  const ok = Math.abs(v - G.q.ans) < 1e-9;
+  G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, ms: performance.now() - G.q.t0 });
+  if (ok) {
+    G.correct++;
+    renderAnswer("ok");
+    G.waiting = true;
+    setTimeout(() => { if (G && G.waiting) afterAnswer(); }, 220);
+  } else {
+    renderAnswer("bad");
+    const shown = G.q.hasSlot ? G.q.html.replace(SLOT, `<b>${fmt(G.q.ans)}</b>`) : `${G.q.html} = <b>${fmt(G.q.ans)}</b>`;
+    $("sol").innerHTML = shown;
+    $("corrTip").innerHTML = tipHTML(tipFor(G.q.op));
+    $("correction").hidden = false;
+    $("go").textContent = "Suivant";
+    G.waiting = true;
+  }
+}
+function afterAnswer() {
+  if (!G) return;
+  if (G.count && G.items.length >= G.count) return endGame();
+  nextQuestion();
+}
+function endGame() {
+  clearInterval(tick);
+  if (!G) return;
+  const g = G; G = null;
+  const total = g.items.length;
+  if (!total) { show("home"); renderHome(); return; }
+  const ms = g.timer ? Math.min(performance.now() - g.start, g.timer * 1000) : performance.now() - g.start;
+  const session = { date: Date.now(), level: g.level, ops: g.ops, correct: g.correct, total, ms, timer: g.timer, count: g.count };
+  const complete = g.timer ? ms >= g.timer * 1000 - 300 : g.count && total >= g.count;
+  // Record seulement pour une séance menée jusqu'au bout
+  let newRec = false;
+  if (complete) {
+    const recs = store.get("records", {}); const key = recordKey({ ops: g.ops, level: g.level, timer: g.timer, count: g.count });
+    if (better(session, recs[key])) { newRec = !!recs[key] || true; recs[key] = session; store.set("records", recs); }
+  }
+  const hist = store.get("history", []); hist.unshift(session); store.set("history", hist.slice(0, 30));
+
+  const acc = Math.round(100 * g.correct / total);
+  $("resLabel").textContent = `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
+  $("resScore").innerHTML = g.timer ? `${g.correct}<small> justes</small>` : `${g.correct}<small>/${total}</small>`;
+  $("resMsg").textContent = acc === 100 ? "Sans faute, bravo !" : acc >= 80 ? "Très bien, continue comme ça !" : acc >= 50 ? "Pas mal, regarde les corrections ci-dessous." : "Courage, chaque séance compte.";
+  $("resRec").hidden = !newRec;
+  $("kAcc").textContent = acc + " %";
+  $("kAvg").textContent = fmt(Math.round(ms / total / 100) / 10) + " s";
+  $("kTime").textContent = fmtTime(ms);
+  const errs = g.items.filter((x) => !x.ok);
+  $("errCard").hidden = !errs.length;
+  $("errs").innerHTML = errs.map((x) => {
+    const q = x.hasSlot ? x.html : `${x.html} = ${SLOT}`;
+    return `<li><div class="e-q">${q}</div><div class="e-a">Ta réponse : <s>${fmt(x.given)}</s> · Bonne réponse : <b>${fmt(x.ans)}</b></div></li>`;
+  }).join("");
+  // Astuce sur l'opération la plus ratée
+  const miss = {}; errs.forEach((x) => { miss[x.op] = (miss[x.op] || 0) + 1; });
+  const worst = Object.keys(miss).sort((a, b) => miss[b] - miss[a])[0];
+  $("resTip").innerHTML = tipHTML(worst ? `<em>${OP_BY_ID[worst].label}.</em> ${tipFor(worst)}` : pick(GENERIC_TIPS));
+  show("results");
+}
+
+/* ---------- Événements ---------- */
+$("start").onclick = startGame;
+$("again").onclick = startGame;
+$("menu").onclick = () => { show("home"); renderHome(); };
+$("quit").onclick = endGame;
+$("pad").addEventListener("click", (e) => { const b = e.target.closest("button[data-k]"); if (b) press(b.dataset.k); });
+document.addEventListener("keydown", (e) => {
+  if (!G) { if (e.key === "Enter" && !$("results").hidden) startGame(); return; }
+  if (/^[0-9]$/.test(e.key)) press(e.key);
+  else if (e.key === "," || e.key === ".") press(",");
+  else if (e.key === "Backspace") press("del");
+  else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); press("ok"); }
+  else if (e.key === "Escape") endGame();
+});
+
+/* ---------- Photo de motivation ---------- */
+function applyPhoto() {
+  const data = store.get("photo", null);
+  const url = data || "christine.jpg";
+  const img = new Image();
+  img.onload = () => { $("bg").style.backgroundImage = `url("${url}")`; $("thumb").style.backgroundImage = `url("${url}")`; };
+  img.onerror = () => { $("bg").style.backgroundImage = ""; $("thumb").style.backgroundImage = ""; };
+  img.src = url;
+  $("removePhoto").hidden = !data;
+}
+$("pickPhoto").onclick = () => $("photoInput").click();
+$("removePhoto").onclick = () => { try { localStorage.removeItem("cm.photo"); } catch (e) {} applyPhoto(); };
+$("photoInput").onchange = (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const img = new Image(); const url = URL.createObjectURL(f);
+  img.onload = () => {
+    // Réduit la photo pour qu'elle tienne dans le stockage du navigateur
+    const max = 1200, s = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    if (!store.set("photo", c.toDataURL("image/jpeg", .82))) alert("La photo n'a pas pu être enregistrée sur ce téléphone.");
+    applyPhoto();
+  };
+  img.src = url; e.target.value = "";
+};
+
+/* ---------- Hors ligne ---------- */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").then(() => {
+    $("offlineLine").textContent = "Fonctionne aussi hors ligne une fois ouverte.";
+  }).catch(() => {});
+}
+
+renderHome();
+applyPhoto();
+</script>
+</body>
+</html>
