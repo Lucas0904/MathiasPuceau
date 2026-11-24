@@ -1,5 +1,5 @@
 // Mode hors ligne : tout est mis en cache à la première visite
-const CACHE = "calcul-mental-v2";
+const CACHE = "calcul-mental-v3";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon.svg", "christine.jpg", "photo-boisson.jpg", "photo-chiottes.jpg", "photo-propre.jpg"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => Promise.all(FILES.map((f) => c.add(f).catch(() => {})))).then(() => self.skipWaiting()));
