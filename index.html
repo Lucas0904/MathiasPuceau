@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#16140F" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Calcul">
 <style>
@@ -95,6 +95,18 @@ body.turb-on .game, .turb { animation: turb .55s ease-in-out; }
 @keyframes wobble { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
 @keyframes slam { 0% { opacity: 0; transform: scale(3.2) rotate(12deg); } 70% { opacity: 1; transform: scale(.92) rotate(12deg); } 100% { opacity: 1; transform: scale(1) rotate(12deg); } }
 @keyframes turb { 0%, 100% { transform: none; } 10% { transform: translate(-5px, 3px) rotate(-.4deg); } 25% { transform: translate(5px, -3px) rotate(.4deg); } 40% { transform: translate(-4px, 2px); } 60% { transform: translate(4px, -2px); } 80% { transform: translate(-2px, 1px); } }
+body.gated #home, body.gated #game, body.gated #results, body.gated #oops { display: none !important; }
+.gate-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+.gate-card h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+.steps { list-style: none; counter-reset: st; margin: 0; padding: 0; display: grid; gap: 14px; }
+.steps li { counter-increment: st; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; align-items: start; font-size: 16px; line-height: 1.4; }
+.steps li::before { content: counter(st); width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-weight: 700; display: grid; place-items: center; font-size: 15px; }
+.steps svg { width: 22px; height: 22px; vertical-align: -5px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin: 0 2px; }
+.steps .ico { display: inline-block; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 2px 6px; white-space: nowrap; font-weight: 600; }
+.gate-note { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
+.gate-warn { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 15px; margin-bottom: 12px; }
+.gate-status { font-size: 13px; color: var(--muted); text-align: center; margin: 14px 0 0; }
+.gate-ok { background: var(--ok-soft); color: var(--ok); border-radius: 12px; padding: 12px 14px; font-weight: 600; margin-bottom: 12px; }
 .maintabs { position: sticky; top: 8px; z-index: 6; margin: 0 0 14px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
 .kpis { margin-bottom: 8px; }
 .oprow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; margin-bottom: 12px; font-size: 14px; }
@@ -222,6 +234,15 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
 </style>
 </head>
 <body>
+
+<!-- INSTALLATION : l'appli ne s'ouvre que depuis l'écran d'accueil -->
+<main id="gate" class="screen" hidden>
+  <p class="eyebrow">Avant de commencer</p>
+  <h1>Installe l'appli</h1>
+  <p class="lede">Calcul mental s'utilise comme une vraie appli : plein écran, hors ligne, avec tes stats et ta série. Pour cela, il faut d'abord l'ajouter à ton écran d'accueil.</p>
+  <div id="gateBody"></div>
+  <p class="gate-status" id="gateStatus"></p>
+</main>
 
 <!-- ACCUEIL -->
 <main id="home" class="screen">
@@ -1432,6 +1453,7 @@ function show(id) {
 }
 const PSY0_OPS = ["intrus"];
 function startGame(kind) {
+  if (document.body.classList.contains("gated")) return;
   const daily = kind === true, psy0 = kind === "psy0";
   if (daily ? store.get("daily", {})[dateKey()] : !psy0 && !settings.ops.length) return;
   sfx.init();
@@ -1651,6 +1673,87 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "Escape") endGame();
 });
 
+/* ---------- Installation obligatoire : l'appli ne s'ouvre que depuis l'écran d'accueil ---------- */
+const IC = {
+  share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M7 11H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>',
+  dots: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="19" r="1.2" fill="currentColor"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg>',
+  install: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 7v6M9 11l3 3 3-3M8 21h8"/></svg>'
+};
+function isInstalled() {
+  try {
+    if (window.navigator.standalone === true) return true;                                   // iPhone / iPad
+    const q = (m) => window.matchMedia && window.matchMedia(m).matches;
+    if (q("(display-mode: standalone)") || q("(display-mode: fullscreen)") || q("(display-mode: minimal-ui)") || q("(display-mode: window-controls-overlay)")) return true;   // Android, ordinateur
+    if (document.referrer && document.referrer.startsWith("android-app://")) return true;
+  } catch (e) {}
+  return false;
+}
+let deferredInstall = null, justInstalled = false;
+function platformInfo() {
+  const ua = navigator.userAgent || "";
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  const inApp = /FBAN|FBAV|Instagram|MicroMessenger|Snapchat|TikTok|Line\/|Messenger|; wv\)/i.test(ua);
+  const iosOther = ios && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+  const samsung = /SamsungBrowser/.test(ua), firefox = /Firefox|FxiOS/.test(ua);
+  const edge = /Edg\//.test(ua), safariMac = !ios && !android && /Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua);
+  return { ios, android, inApp, iosOther, samsung, firefox, edge, safariMac, ipad: /iPad/.test(ua) || (ios && !/iPhone/.test(ua)) };
+}
+function renderGate() {
+  const g = $("gate"), body = $("gateBody"), P = platformInfo(), steps = [];
+  const copyBtn = `<button class="btn secondary" id="gateCopy" type="button" style="min-height:46px;font-size:15px;margin-top:12px">Copier le lien de l'appli</button>`;
+  let intro = "", extra = "";
+  if (justInstalled) {
+    body.innerHTML = `<div class="gate-ok">Installée ! Ferme cet onglet et ouvre l'appli « Calcul » depuis ton écran d'accueil.</div>`;
+    $("gateStatus").textContent = "Cette page se débloque seulement depuis l'icône de l'appli.";
+    return;
+  }
+  if (P.inApp) intro = `<div class="gate-warn"><b>Tu es dans le navigateur d'une autre appli</b> (Instagram, Facebook, Messenger…). Il ne permet pas l'installation. Copie le lien, puis ouvre-le dans ${P.ios ? "<b>Safari</b>" : "<b>Chrome</b>"}.</div>`;
+  if (P.ios) {
+    if (P.iosOther && !P.inApp) intro = `<div class="gate-warn">Le plus fiable sur iPhone et iPad : ouvre ce lien dans <b>Safari</b>. Dans d'autres navigateurs, les mêmes étapes marchent parfois, mais pas toujours.</div>`;
+    steps.push(`Touche le bouton <span class="ico">${IC.share} Partager</span> ${P.ipad ? "en haut de l'écran" : "en bas de l'écran (au milieu de la barre)"}.`);
+    steps.push(`Fais défiler le menu vers le haut et touche <span class="ico">${IC.plus} Sur l'écran d'accueil</span>.`);
+    steps.push(`Touche <b>Ajouter</b> en haut à droite.`);
+    steps.push(`Ferme Safari et ouvre l'appli <b>Calcul</b> depuis ton écran d'accueil.`);
+    extra = `<p class="gate-note">Si tu ne vois pas « Sur l'écran d'accueil », fais défiler plus bas dans le menu Partager. L'option n'existe pas en navigation privée.</p>`;
+  } else if (P.android) {
+    if (P.samsung) {
+      steps.push(`Touche le menu <span class="ico">≡</span> en bas à droite.`);
+      steps.push(`Touche <b>Ajouter la page à</b>, puis <b>Écran d'accueil</b>.`);
+      steps.push(`Confirme avec <b>Ajouter</b>.`);
+    } else {
+      steps.push(`Touche le menu <span class="ico">${IC.dots}</span> en haut à droite de Chrome.`);
+      steps.push(`Touche <span class="ico">${IC.install} Installer l'application</span> (ou <b>Ajouter à l'écran d'accueil</b>).`);
+      steps.push(`Confirme avec <b>Installer</b>.`);
+    }
+    steps.push(`Ouvre l'appli <b>Calcul</b> depuis ton écran d'accueil ou ton tiroir d'applications.`);
+    if (P.firefox) intro = `<div class="gate-warn">Firefox sur Android installe mal les applis web. Ouvre ce lien dans <b>Chrome</b> pour la meilleure installation.</div>`;
+    extra = `<p class="gate-note">Si l'option n'apparaît pas, recharge la page et attends quelques secondes : Chrome propose l'installation après le premier chargement.</p>`;
+  } else {
+    if (P.safariMac) { steps.push(`Dans le menu <b>Fichier</b> de Safari, choisis <b>Ajouter au Dock</b>.`); steps.push(`Ouvre <b>Calcul mental</b> depuis le Dock ou le Launchpad.`); }
+    else if (P.firefox) { intro = `<div class="gate-warn">Firefox sur ordinateur ne sait pas installer les applis web. Ouvre ce lien dans <b>Chrome</b> ou <b>Edge</b>.</div>`; steps.push(`Dans Chrome ou Edge, clique sur l'icône <span class="ico">${IC.install}</span> à droite de la barre d'adresse.`); steps.push(`Clique sur <b>Installer</b>.`); steps.push(`Ouvre <b>Calcul mental</b> depuis la fenêtre qui s'ouvre, le menu Démarrer ou le Bureau.`); }
+    else { steps.push(`Clique sur l'icône <span class="ico">${IC.install}</span> à droite de la barre d'adresse (ou menu <span class="ico">${IC.dots}</span> puis <b>${P.edge ? "Applications" : "Enregistrer et partager"}</b>, puis <b>Installer</b>).`); steps.push(`Clique sur <b>Installer</b>.`); steps.push(`Ouvre <b>Calcul mental</b> depuis la fenêtre qui s'ouvre, le menu Démarrer ou le Bureau.`); }
+  }
+  const direct = deferredInstall ? `<button class="btn" id="gateInstall" type="button" style="margin-bottom:12px">Installer l'application</button>` : "";
+  let inv = "";
+  if (pendingRoom) inv = `<p class="gate-note" style="margin:0 0 12px">Tu as été invité à un duel : installe d'abord l'appli, puis rouvre le lien d'invitation depuis l'appli installée.</p>`;
+  body.innerHTML = `${intro}${direct}<section class="gate-card"><h2>${P.ios ? "Sur iPhone / iPad" : P.android ? "Sur Android" : "Sur ordinateur"} : 4 étapes</h2><ol class="steps">${steps.map((x) => `<li><span>${x}</span></li>`).join("")}</ol>${extra}</section>${inv}${P.inApp || P.iosOther || P.firefox ? copyBtn : ""}`;
+  $("gateStatus").textContent = "L'appli est ouverte dans un navigateur : elle se débloquera d'elle-même quand tu l'ouvriras depuis l'icône installée.";
+  const ib = $("gateInstall"); if (ib) ib.onclick = async () => { try { deferredInstall.prompt(); const r = await deferredInstall.userChoice; if (r && r.outcome === "accepted") { justInstalled = true; } deferredInstall = null; } catch (e) {} renderGate(); };
+  const cb = $("gateCopy"); if (cb) cb.onclick = async () => { const u = location.href.split(/[?#]/)[0]; try { await navigator.clipboard.writeText(u); cb.textContent = "Lien copié !"; } catch (e) { prompt("Copie ce lien :", u); } };
+}
+function applyGate() {
+  const installed = isInstalled();
+  document.body.classList.toggle("gated", !installed);
+  $("gate").hidden = installed;
+  if (!installed) renderGate();
+  return installed;
+}
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; if (!isInstalled()) renderGate(); });
+window.addEventListener("appinstalled", () => { justInstalled = true; deferredInstall = null; if (!isInstalled()) renderGate(); });
+try { const mq = window.matchMedia("(display-mode: standalone)"); (mq.addEventListener ? mq.addEventListener.bind(mq, "change") : mq.addListener.bind(mq))(() => applyGate()); } catch (e) {}
+
 /* ---------- Hors ligne ---------- */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").then(() => {
@@ -1658,6 +1761,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   }).catch(() => {});
 }
 
+applyGate();
 renderTabs();
 renderHome();
 renderDuel();
