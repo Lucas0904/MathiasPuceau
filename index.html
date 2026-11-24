@@ -81,22 +81,24 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
 .seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.15); color: var(--accent); font-weight: 700; }
 .sub { margin: 12px 0 6px; font-size: 14px; color: var(--muted); }
 #levels { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
-.steward { display: flex; align-items: flex-end; justify-content: center; gap: 12px; animation: rise .4s ease-out both; }
-.steward svg { width: 86px; height: auto; flex: none; overflow: visible; }
-.bubble { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-size: 14px; line-height: 1.35; max-width: 250px; text-align: left; }
-.bubble::before { content: ""; position: absolute; left: -7px; bottom: 18px; width: 12px; height: 12px; background: var(--surface); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
-.bubble b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
-.s-head { transform-origin: 60px 70px; animation: headshake 1.1s ease-in-out .35s 2; }
-.s-arm-r { transform-origin: 88px 90px; animation: point 1.6s ease-in-out .5s 1 both; }
-.s-arm-l { transform-origin: 28px 90px; animation: point-l 1.6s ease-in-out .5s 1 both; }
-.s-eyes { animation: blink 2.4s infinite .8s; transform-origin: 60px 50px; }
-@keyframes rise { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: none; } }
-@keyframes headshake { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-10deg); } 45% { transform: rotate(9deg); } 70% { transform: rotate(-6deg); } }
-@keyframes point { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(-80deg); } }
-@keyframes point-l { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(80deg); } }
-@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+.oops { position: fixed; inset: 0; z-index: 50; background: rgba(15, 12, 8, .94); overflow-y: auto; display: flex; align-items: center; justify-content: center; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s ease-out both; }
+.oops-card { width: 100%; max-width: 400px; display: grid; gap: 12px; margin: auto; }
+.oops-tag { text-align: center; color: #fff; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; opacity: .85; }
+.snap { position: relative; margin: 0; border-radius: 16px; overflow: hidden; border: 4px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,.5); animation: pop .6s cubic-bezier(.2, 1.4, .4, 1) both, wobble 2.4s ease-in-out .7s infinite; }
+.snap img { display: block; width: 100%; height: auto; }
+.stamp { position: absolute; right: 8px; top: 12px; font-family: var(--font-display); font-size: 40px; line-height: 1; color: #E5483A; border: 4px solid #E5483A; border-radius: 10px; padding: 2px 10px; background: rgba(255,255,255,.82); transform: rotate(12deg); animation: slam .35s ease-in .6s both; letter-spacing: .04em; }
+.bubble { position: relative; background: #fff; color: #1F1C17; border-radius: 16px; padding: 12px 14px; font-size: 16px; line-height: 1.35; font-weight: 600; text-align: center; animation: rise .4s ease-out .5s both; }
+.bubble::before { content: ""; position: absolute; left: 50%; top: -7px; width: 14px; height: 14px; background: #fff; transform: translateX(-50%) rotate(45deg); }
+.oops .sol { text-align: center; color: #fff; font-size: 18px; animation: rise .4s ease-out .8s both; }
+.oops .sol b { color: #8FE0A0; font-size: 28px; }
+.oops .btn { animation: rise .4s ease-out 1s both; }
+body.turb-on .game, .turb { animation: turb .55s ease-in-out; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { opacity: 0; transform: scale(.3) rotate(-14deg); } 60% { opacity: 1; transform: scale(1.08) rotate(3deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes wobble { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
+@keyframes slam { 0% { opacity: 0; transform: scale(3.2) rotate(12deg); } 70% { opacity: 1; transform: scale(.92) rotate(12deg); } 100% { opacity: 1; transform: scale(1) rotate(12deg); } }
 @keyframes turb { 0%, 100% { transform: none; } 10% { transform: translate(-5px, 3px) rotate(-.4deg); } 25% { transform: translate(5px, -3px) rotate(.4deg); } 40% { transform: translate(-4px, 2px); } 60% { transform: translate(4px, -2px); } 80% { transform: translate(-2px, 1px); } }
-.turb { animation: turb .55s ease-in-out; }
 .custom { display: flex; gap: 12px; margin-top: 10px; }
 .custom label { flex: 1; font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
 .custom input { width: 100%; min-height: 46px; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 8px 12px; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -136,9 +138,6 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
 .answer.empty::after { content: "…"; color: var(--muted); font-weight: 400; }
 .answer.ok { border-color: var(--ok); background: var(--ok-soft); }
 .answer.bad { border-color: var(--bad); background: var(--bad-soft); text-decoration: line-through; text-decoration-thickness: 2px; }
-.correction { width: 100%; display: grid; gap: 10px; text-align: left; }
-.correction .sol { font-size: 18px; text-align: center; }
-.correction .sol b { color: var(--ok); font-size: 26px; }
 .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .pad button { min-height: 58px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pad button:active { background: var(--accent-soft); }
@@ -267,31 +266,6 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
     <div class="kind" id="kind"></div>
     <div class="q" id="question"></div>
     <div class="answer empty" id="answer" aria-live="polite"></div>
-    <div class="correction" id="correction" hidden>
-      <div class="steward" id="steward">
-        <svg viewBox="0 0 120 150" aria-hidden="true">
-          <g class="s-arm-l"><rect x="22" y="88" width="13" height="40" rx="6.5" fill="#1F3A5F"/><circle cx="28.5" cy="130" r="7" fill="#F2C9A5"/></g>
-          <rect x="30" y="78" width="60" height="70" rx="14" fill="#1F3A5F"/>
-          <path d="M48 78l12 24 12-24z" fill="#fff"/>
-          <path d="M57 82h6l3 32-6 6-6-6z" fill="#C0392B"/>
-          <rect x="30" y="112" width="60" height="4" fill="#C0392B" opacity=".9"/>
-          <g class="s-arm-r"><rect x="82" y="86" width="13" height="40" rx="6.5" fill="#1F3A5F"/><circle cx="88.5" cy="128" r="7" fill="#F2C9A5"/></g>
-          <g class="s-head">
-            <rect x="53" y="62" width="14" height="18" rx="5" fill="#E6B48C"/>
-            <circle cx="60" cy="46" r="23" fill="#F2C9A5"/>
-            <circle cx="37.5" cy="48" r="4.5" fill="#E6B48C"/><circle cx="82.5" cy="48" r="4.5" fill="#E6B48C"/>
-            <path d="M38 40c0-18 12-24 22-24s22 6 22 24c-5-9-13-13-22-13s-17 4-22 13z" fill="#2B2420"/>
-            <path d="M36 34c2-14 13-22 24-22s22 8 24 22l-5 2c-3-9-10-14-19-14s-16 5-19 14z" fill="#1F3A5F"/>
-            <rect x="34" y="32" width="52" height="6" rx="3" fill="#C0392B"/>
-            <g class="s-brows"><path d="M44 41l10 3" stroke="#2B2420" stroke-width="2.5" stroke-linecap="round"/><path d="M76 41l-10 3" stroke="#2B2420" stroke-width="2.5" stroke-linecap="round"/></g>
-            <g class="s-eyes"><circle cx="50" cy="50" r="2.8" fill="#2B2420"/><circle cx="70" cy="50" r="2.8" fill="#2B2420"/></g>
-            <ellipse cx="60" cy="64" rx="5" ry="4" fill="#8B3A2B"/>
-          </g>
-        </svg>
-        <div class="bubble"><b>Annonce cabine</b><span id="stewardMsg"></span></div>
-      </div>
-      <div class="sol" id="sol"></div>
-    </div>
   </div>
 
   <div class="pad" id="pad">
@@ -302,6 +276,20 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
     <button type="button" class="go" id="go" data-k="ok">Valider</button>
   </div>
 </main>
+
+<!-- RÉACTION À UNE ERREUR -->
+<div id="oops" class="oops" hidden role="dialog" aria-live="polite" aria-label="Erreur">
+  <div class="oops-card">
+    <div class="oops-tag" id="oopsTag"></div>
+    <figure class="snap" id="snap">
+      <img id="oopsImg" alt="" width="720" height="540">
+      <span class="stamp">RATÉ !</span>
+    </figure>
+    <div class="bubble"><span id="oopsMsg"></span></div>
+    <div class="sol" id="oopsSol"></div>
+    <button class="btn" id="oopsNext" type="button">Suivant</button>
+  </div>
+</div>
 
 <!-- RÉSULTATS -->
 <main id="results" class="screen" hidden>
@@ -739,26 +727,49 @@ function better(a, b) { // a meilleur que b ?
 }
 function fmtTime(ms) { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
 
-/* ---------- Le steward qui réagit à une erreur ---------- */
-const STEWARD_MSGS = [
-  "Mesdames et messieurs, nous traversons une zone de turbulences. Veuillez rester assis et recompter.",
-  "Ceinture attachée, on retente !",
-  "Les sorties de secours sont ici et là. La bonne réponse, elle, est juste en dessous.",
-  "Ce calcul est annulé pour cause de météo défavorable.",
-  "Restez calmes : ceci est une erreur de calcul, pas une panne moteur.",
-  "Veuillez relever votre tablette et votre concentration.",
-  "Un petit café avec ça ? Ça aide parfois à calculer.",
-  "Atterrissage en douceur sur la correction.",
-  "Votre réponse est placée en soute. Récupération sur le tapis numéro 3.",
-  "Dans le doute, repassez les astuces en fin de séance."
+/* ---------- Réaction à une erreur : photo + moquerie bienveillante ---------- */
+const ROASTS = [
+  { img: "photo-boisson.jpg", tag: "Service en cabine", msgs: [
+    "Raté ! Boisson chaude pour digérer l'erreur ?",
+    "Tu rates, je sers. Chacun son métier.",
+    "Un petit café ? Ça n'aidera pas le calcul, mais ça fera du bien.",
+    "Eau gazeuse ou bonne réponse ? Là, on n'a plus que l'eau gazeuse.",
+    "Je t'aurais bien servi la bonne réponse, mais elle est en rupture."
+  ] },
+  { img: "photo-chiottes.jpg", tag: "Équipe nettoyage", msgs: [
+    "Les chiottes sont propres. Ton calcul, beaucoup moins.",
+    "Je nettoie les toilettes, mais ta réponse, je n'y touche pas.",
+    "Même un seau d'eau ne rattraperait pas cette réponse.",
+    "Attention sol glissant. Comme ta réponse.",
+    "Mission du jour : nettoyer les toilettes. Mission de demain : apprendre ce calcul."
+  ] },
+  { img: "photo-propre.jpg", tag: "Contrôle qualité", msgs: [
+    "C'est assez faux ou je continue ?",
+    "Ta réponse est vraiment fausse ou je continue ?",
+    "Verdict du contrôle qualité : non.",
+    "Je note : « calcul mental, peut mieux faire ».",
+    "Ce calcul est à refaire, et pas qu'un peu."
+  ] }
 ];
-let lastSteward = -1;
-function steward() {
-  let i; do { i = Math.floor(Math.random() * STEWARD_MSGS.length); } while (i === lastSteward && STEWARD_MSGS.length > 1);
-  lastSteward = i;
-  $("stewardMsg").textContent = STEWARD_MSGS[i];
+let lastRoast = -1, lastMsg = {};
+function oops(solHTML) {
+  let r; do { r = Math.floor(Math.random() * ROASTS.length); } while (r === lastRoast);
+  lastRoast = r;
+  const R = ROASTS[r]; let m; do { m = Math.floor(Math.random() * R.msgs.length); } while (m === lastMsg[r] && R.msgs.length > 1);
+  lastMsg[r] = m;
+  $("oopsImg").src = R.img; $("oopsTag").textContent = R.tag; $("oopsMsg").textContent = R.msgs[m];
+  $("oopsSol").innerHTML = solHTML;
+  // Rejoue les animations à chaque erreur, et met le chrono en pause pendant la moquerie
+  const o = $("oops"); o.hidden = false;
+  [$("snap"), o.querySelector(".stamp"), o.querySelector(".bubble"), o.querySelector(".sol"), o.querySelector(".btn")].forEach((el) => { el.style.animation = "none"; void el.offsetWidth; el.style.animation = ""; });
+  if (G && !G.pauseAt) G.pauseAt = performance.now();
   const g = $("game"); g.classList.remove("turb"); void g.offsetWidth; g.classList.add("turb");
 }
+function hideOops() {
+  $("oops").hidden = true;
+  if (G && G.pauseAt) { G.start += performance.now() - G.pauseAt; G.pauseAt = 0; }
+}
+$("oopsNext").onclick = () => { if (G && G.waiting) afterAnswer(); };
 
 /* ---------- Partie ---------- */
 let G = null, tick = null;
@@ -779,7 +790,7 @@ function startGame() {
   clearInterval(tick); tick = setInterval(updateClock, 200); updateClock();
 }
 function updateClock() {
-  if (!G) return;
+  if (!G || G.pauseAt) return;
   const el = performance.now() - G.start;
   if (G.timer) {
     const left = G.timer * 1000 - el;
@@ -810,7 +821,7 @@ function nextQuestion() {
     $("question").innerHTML = q.hasSlot ? q.html : `${q.html} = ${SLOT}`;
     $("question").classList.toggle("long", !!q.long || q.html.length > 60);
   }
-  $("correction").hidden = true;
+  hideOops();
   $("go").textContent = "Valider";
   const done = G.items.length;
   $("sProg").textContent = G.count ? `${done + 1}/${G.count}` : String(done);
@@ -857,10 +868,8 @@ function submitPick() {
   G.waiting = true;
   if (ok) { G.correct++; setTimeout(() => { if (G && G.waiting) afterAnswer(); }, 700); }
   else {
-    $("sol").innerHTML = "Les fausses étaient : <b>" + q.ans.map((i) => "n°" + (i + 1)).join(", ") + "</b>";
-    $("correction").hidden = false;
     $("go").textContent = "Suivant";
-    steward();
+    oops("Les fausses étaient : <b>" + q.ans.map((i) => "n°" + (i + 1)).join(", ") + "</b>");
   }
 }
 function submit() {
@@ -876,10 +885,8 @@ function submit() {
   } else {
     renderAnswer("bad");
     const shown = G.q.hasSlot ? G.q.html.replace(SLOT, `<b>${fmt(G.q.ans)}</b>`) : `${G.q.html} = <b>${fmt(G.q.ans)}</b>`;
-    $("sol").innerHTML = shown;
-    $("correction").hidden = false;
     $("go").textContent = "Suivant";
-    steward();
+    oops(shown);
     G.waiting = true;
   }
 }
@@ -891,6 +898,7 @@ function afterAnswer() {
 function endGame() {
   clearInterval(tick);
   if (!G) return;
+  hideOops();
   const g = G; G = null;
   const total = g.items.length;
   if (!total) { show("home"); renderHome(); return; }
