@@ -434,76 +434,139 @@ const LEVELS = [
 
 /* ---------- Explications précises (une par calcul) ---------- */
 const parts = (n) => { const s = String(n), o = []; for (let i = 0; i < s.length; i++) { const d = +s[i]; if (d) o.push(d * 10 ** (s.length - 1 - i)); } return o; };
+const meth = (name, text) => `<b>${name}.</b> ${text}`;
+// b est juste sous un rond (97, 198, 1994…) ? renvoie le rond et l'écart
+function roundUpNear(b) {
+  const c100 = Math.ceil(b / 100) * 100, e100 = c100 - b;
+  if (b >= 100 && e100 > 0 && e100 <= 6) return { c: c100, e: e100 };
+  const c10 = Math.ceil(b / 10) * 10, e10 = c10 - b;
+  if (b >= 7 && e10 > 0 && e10 <= 3) return { c: c10, e: e10 };
+  return null;
+}
 function whyAdd(a, b) {
-  const u = b % 10;
-  if (u >= 7) { const c = b + 10 - u, e = c - b; return `${fmt(b)} est tout près de ${fmt(c)}. Ajoute ${fmt(c)} : ${fmt(a)} + ${fmt(c)} = ${fmt(a + c)}. Puis retire l'écart de ${e} : ${fmt(a + c)} ${MINUS} ${e} = ${fmt(a + b)}.`; }
-  const p = parts(b);
-  if (p.length === 1) return `Ajoute directement : ${fmt(a)} + ${fmt(b)} = ${fmt(a + b)}.`;
-  let t = a; const st = p.map((x) => { const r = `${fmt(t)} + ${fmt(x)} = ${fmt(t + x)}`; t += x; return r; });
-  return `Ajoute ${fmt(b)} par morceaux, du plus gros au plus petit (${p.map(fmt).join(" + ")}) : ${st.join(", puis ")}.`;
+  const r = a + b, n = roundUpNear(b);
+  if (n) return meth("Arrondis puis corrige", `${fmt(b)} est juste en dessous de ${fmt(n.c)}. ${fmt(a)} + ${fmt(n.c)} = ${fmt(a + n.c)}, puis on retire ${n.e} : ${fmt(a + n.c)} ${MINUS} ${n.e} = ${fmt(r)}.`);
+  if (roundUpNear(a)) return whyAdd(b, a);
+  if (a > 10 && b > 10 && a % 10 + b % 10 === 10) return meth("Unités qui se complètent", `${a % 10} + ${b % 10} = 10 : ça fait un compte rond. ${fmt(a - a % 10)} + ${fmt(b - b % 10)} + 10 = ${fmt(r)}.`);
+  const pb = parts(b), pa = parts(a), big = pa.length < pb.length ? [b, pa] : [a, pb];
+  if (big[1].length === 1) return meth("Direct", `${fmt(a)} + ${fmt(b)} = ${fmt(r)}.`);
+  let t = big[0]; const st = big[1].map((x) => { const q = `${fmt(t)} + ${fmt(x)} = ${fmt(t + x)}`; t += x; return q; });
+  const other = big[0] === a ? b : a;
+  return meth("Par morceaux", `on garde ${fmt(big[0])} et on ajoute ${fmt(other)} en le découpant (${big[1].map(fmt).join(" + ")}), du plus gros au plus petit : ${st.join(", puis ")}.`);
 }
 function whySub(a, b) {
-  const u = b % 10;
-  if (u >= 7) { const c = b + 10 - u, e = c - b; return `${fmt(b)} est tout près de ${fmt(c)}. Enlève ${fmt(c)} : ${fmt(a)} ${MINUS} ${fmt(c)} = ${fmt(a - c)}. Puis rends l'écart de ${e} : ${fmt(a - c)} + ${e} = ${fmt(a - b)}.`; }
+  const r = a - b, n = roundUpNear(b);
+  if (n) return meth("Décale les deux nombres", `${fmt(b)} est juste en dessous de ${fmt(n.c)} : on ajoute ${n.e} aux deux nombres, l'écart ne change pas. ${fmt(a)} + ${n.e} = ${fmt(a + n.e)} et ${fmt(b)} + ${n.e} = ${fmt(n.c)}. Donc ${fmt(a + n.e)} ${MINUS} ${fmt(n.c)} = ${fmt(r)}.`);
+  if (r <= 60 && b >= 10) { const c = (Math.floor(b / 10) + 1) * 10; if (c < a) return meth("Compte à partir de", `de ${fmt(b)} jusqu'à ${fmt(c)} il y a ${c - b}, puis de ${fmt(c)} jusqu'à ${fmt(a)} il y a ${a - c}. ${c - b} + ${a - c} = ${r}.`); }
   const p = parts(b);
-  if (p.length === 1) return `Enlève directement : ${fmt(a)} ${MINUS} ${fmt(b)} = ${fmt(a - b)}.`;
-  let t = a; const st = p.map((x) => { const r = `${fmt(t)} ${MINUS} ${fmt(x)} = ${fmt(t - x)}`; t -= x; return r; });
-  return `Enlève ${fmt(b)} par morceaux (${p.map(fmt).join(" + ")}) : ${st.join(", puis ")}.`;
+  if (p.length === 1) return meth("Direct", `${fmt(a)} ${MINUS} ${fmt(b)} = ${fmt(r)}.`);
+  let t = a; const st = p.map((x) => { const q = `${fmt(t)} ${MINUS} ${fmt(x)} = ${fmt(t - x)}`; t -= x; return q; });
+  return meth("Par morceaux", `on enlève ${fmt(b)} en le découpant (${p.map(fmt).join(" + ")}), du plus gros au plus petit : ${st.join(", puis ")}.`);
 }
 function whyMul(a, b) {
-  const r = a * b, has = (n) => a === n || b === n, o = (n) => (a === n ? b : a);
-  if (has(10)) return `× 10 : on ajoute un zéro à ${o(10)}, ça fait ${r}.`;
-  if (has(5)) return `× 5, c'est × 10 puis la moitié : ${o(5)} × 10 = ${o(5) * 10}, la moitié de ${o(5) * 10} est ${r}.`;
-  if (has(9)) return `× 9, c'est × 10 puis on retire le nombre : ${o(9)} × 10 = ${o(9) * 10}, ${o(9) * 10} ${MINUS} ${o(9)} = ${r}.`;
-  if (has(4)) return `× 4, c'est doubler deux fois : ${o(4)} × 2 = ${o(4) * 2}, puis ${o(4) * 2} × 2 = ${r}.`;
+  const r = a * b, f = fmt, has = (n) => a === n || b === n, o = (n) => (a === n ? b : a);
+  if (has(10)) return meth("× 10", `on ajoute un zéro à ${o(10)} : ${f(r)}.`);
+  if (has(5)) return meth("× 5", `c'est × 10 puis la moitié : ${o(5)} × 10 = ${f(o(5) * 10)}, la moitié est ${f(r)}.`);
+  if (has(9)) return meth("× 9", `c'est × 10 puis on retire le nombre : ${o(9)} × 10 = ${f(o(9) * 10)}, ${f(o(9) * 10)} ${MINUS} ${o(9)} = ${f(r)}.`);
+  if (has(4)) return meth("× 4", `on double deux fois : ${o(4)} × 2 = ${f(o(4) * 2)}, puis ${f(o(4) * 2)} × 2 = ${f(r)}.`);
+  if (has(11)) return meth("× 11", `c'est × 10 puis on ajoute le nombre : ${o(11)} × 10 = ${f(o(11) * 10)}, + ${o(11)} = ${f(r)}.`);
+  if (has(25)) return meth("× 25", `c'est × 100 puis ÷ 4 : ${o(25)} × 100 = ${f(o(25) * 100)}, ÷ 4 = ${f(r)}.`);
+  if (has(50)) return meth("× 50", `c'est × 100 puis la moitié : ${o(50)} × 100 = ${f(o(50) * 100)}, la moitié est ${f(r)}.`);
+  if (has(15) && o(15) >= 11) return meth("× 15", `c'est × 10 plus la moitié de ce résultat : ${o(15)} × 10 = ${f(o(15) * 10)}, sa moitié = ${f(o(15) * 5)}, total ${f(r)}.`);
+  if (has(12) && o(12) >= 11) return meth("× 12", `c'est × 10 plus × 2 : ${o(12)} × 10 = ${f(o(12) * 10)}, ${o(12)} × 2 = ${f(o(12) * 2)}, total ${f(r)}.`);
+  if (has(20)) return meth("× 20", `on double puis on ajoute un zéro : ${o(20)} × 2 = ${f(o(20) * 2)}, × 10 = ${f(r)}.`);
+  if (has(99)) return meth("× 99", `c'est × 100 moins le nombre : ${f(o(99) * 100)} ${MINUS} ${o(99)} = ${f(r)}.`);
+  if (has(101)) return meth("× 101", `c'est × 100 plus le nombre : ${f(o(101) * 100)} + ${o(101)} = ${f(r)}.`);
+  if (a !== b && (a + b) % 2 === 0) {
+    const mid = (a + b) / 2, d = Math.abs(a - b) / 2;
+    if (mid % 5 === 0 && d <= 6 && mid >= 15) return meth("Produit remarquable", `${a} et ${b} sont symétriques autour de ${mid} : ${a} × ${b} = (${mid} ${MINUS} ${d}) × (${mid} + ${d}) = ${mid}² ${MINUS} ${d}² = ${f(mid * mid)} ${MINUS} ${d * d} = ${f(r)}.`);
+  }
+  { const ev = a % 2 === 0 ? a : b % 2 === 0 ? b : 0, od = ev === a ? b : a;
+    if (ev && od % 10 === 5 && od >= 15) return meth("Moitié / double", `on prend la moitié d'un facteur et le double de l'autre : ${a} × ${b} = ${ev / 2} × ${od * 2} = ${f(r)}.`); }
   const big = Math.max(a, b), small = Math.min(a, b);
   if (big <= 10) {
-    if (small >= 6) return `${big} × ${small} = ${big} × 10 ${MINUS} ${big} × ${10 - small} = ${big * 10} ${MINUS} ${big * (10 - small)} = ${r}.`;
-    return `Pense à la table de ${small} : ${small} × ${big - 1} = ${small * (big - 1)}, et on ajoute encore ${small} : ${small * (big - 1)} + ${small} = ${r}.`;
+    if (small >= 6) return meth("Passe par 10", `${big} × ${small} = ${big} × 10 ${MINUS} ${big} × ${10 - small} = ${big * 10} ${MINUS} ${big * (10 - small)} = ${r}.`);
+    return meth("Table de " + small, `${small} × ${big - 1} = ${small * (big - 1)}, et on ajoute encore ${small} : ${small * (big - 1)} + ${small} = ${r}.`);
   }
   if (small <= 9) {
     const p = parts(big);
-    if (p.length === 1) return `${big / (10 ** (String(big).length - 1))} × ${small} = ${big / (10 ** (String(big).length - 1)) * small}, puis on remet les zéros : ${r}.`;
-    return `Décompose ${fmt(big)} en ${p.join(" + ")}. ${p.map((x) => `${x} × ${small} = ${x * small}`).join(", ")}. Additionne : ${p.map((x) => x * small).join(" + ")} = ${r}.`;
+    if (p.length === 1) { const u = big / 10 ** (String(big).length - 1); return meth("Zéros à part", `${u} × ${small} = ${u * small}, puis on remet les zéros : ${f(r)}.`); }
+    const nr = roundUpNear(big);
+    if (nr) return meth("Arrondis puis corrige", `${f(big)} est juste en dessous de ${f(nr.c)} : ${f(nr.c)} × ${small} = ${f(nr.c * small)}, moins ${nr.e} × ${small} = ${nr.e * small} : ${f(r)}.`);
+    return meth("Par morceaux", `${f(big)} = ${p.join(" + ")}. ${p.map((x) => `${x} × ${small} = ${f(x * small)}`).join(", ")}. On additionne : ${p.map((x) => f(x * small)).join(" + ")} = ${f(r)}.`);
   }
+  const nr = roundUpNear(small);
+  if (nr) return meth("Arrondis puis corrige", `${small} = ${nr.c} ${MINUS} ${nr.e}. ${f(big)} × ${nr.c} = ${f(big * nr.c)}, moins ${f(big)} × ${nr.e} = ${f(big * nr.e)} : ${f(r)}.`);
   const p = parts(small);
-  if (p.length === 1) return `${big} × ${small / 10} = ${big * small / 10}, puis × 10 : ${r}.`;
-  return `Décompose ${small} en ${p.join(" + ")}. ${big} × ${p[0]} = ${big * p[0]} et ${big} × ${p[1]} = ${big * p[1]}. Additionne : ${big * p[0]} + ${big * p[1]} = ${r}.`;
+  if (p.length === 1) return meth("Zéro à part", `${f(big)} × ${small / 10} = ${f(big * small / 10)}, puis × 10 : ${f(r)}.`);
+  return meth("Par morceaux", `${small} = ${p.join(" + ")}. ${f(big)} × ${p[0]} = ${f(big * p[0])} et ${f(big)} × ${p[1]} = ${f(big * p[1])}. On additionne : ${f(big * p[0])} + ${f(big * p[1])} = ${f(r)}.`);
 }
 function whyDiv(a, b, q) {
-  if (b === 5) return `÷ 5, c'est × 2 puis ÷ 10 : ${fmt(a)} × 2 = ${fmt(a * 2)}, puis ÷ 10 = ${q}.`;
+  const f = fmt;
+  if (b === 2) return meth("÷ 2", `c'est la moitié : ${f(a)} ÷ 2 = ${q}.`);
+  if (b === 4) return meth("÷ 4", `moitié deux fois : ${f(a)} ÷ 2 = ${f(a / 2)}, puis ÷ 2 = ${q}.`);
+  if (b === 8) return meth("÷ 8", `moitié trois fois : ${f(a / 2)}, puis ${f(a / 4)}, puis ${q}.`);
+  if (b === 5) return meth("÷ 5", `c'est × 2 puis ÷ 10 : ${f(a)} × 2 = ${f(a * 2)}, ÷ 10 = ${q}.`);
+  if (b === 10) return meth("÷ 10", `on enlève un zéro : ${q}.`);
+  if (b === 20) return meth("÷ 20", `÷ 10 puis la moitié : ${f(a / 10)}, puis ${q}.`);
+  if (b === 25) return meth("÷ 25", `c'est × 4 puis ÷ 100 : ${f(a)} × 4 = ${f(a * 4)}, ÷ 100 = ${q}.`);
+  if (b === 50) return meth("÷ 50", `c'est × 2 puis ÷ 100 : ${f(a)} × 2 = ${f(a * 2)}, ÷ 100 = ${q}.`);
+  for (let f1 = Math.floor(Math.sqrt(b)); f1 >= 2; f1--) {
+    if (b % f1 === 0 && b / f1 <= 12) return meth("Divise en deux étapes", `${b} = ${f1} × ${b / f1}. ${f(a)} ÷ ${f1} = ${f(a / f1)}, puis ÷ ${b / f1} = ${q}.`);
+  }
   const p = parts(q);
-  if (p.length === 1) return `Cherche dans la table de ${b} : ${b} × ${q} = ${fmt(a)}, donc ${fmt(a)} ${DIV} ${b} = ${q}.`;
-  let rest = a; const st = p.map((x) => { const m = b * x, r = `${b} × ${x} = ${fmt(m)}, il reste ${fmt(rest)} ${MINUS} ${fmt(m)} = ${fmt(rest - m)}`; rest -= m; return r; });
-  return `Découpe le résultat en morceaux (${p.join(" + ")}) : ${st.join(" ; ")}. Total : ${p.join(" + ")} = ${q}.`;
+  if (p.length === 1) return meth("Table de " + b, `${b} × ${q} = ${f(a)}, donc ${f(a)} ÷ ${b} = ${q}.`);
+  let rest = a; const st = p.map((x) => { const m = b * x, r = `${b} × ${x} = ${f(m)}, il reste ${f(rest)} ${MINUS} ${f(m)} = ${f(rest - m)}`; rest -= m; return r; });
+  return meth("Découpe le résultat", `on cherche le quotient par morceaux (${p.join(" + ")}) : ${st.join(" ; ")}. Total : ${p.join(" + ")} = ${q}.`);
 }
 function whySq(a) {
-  if (a <= 10) return `Table de ${a} : ${a} × ${a} = ${a * a}.`;
-  if (a % 10 === 5) { const n = (a - 5) / 10; return `Un nombre qui finit par 5 : ${n} × ${n + 1} = ${n * (n + 1)}, puis on écrit 25 à la suite. ${a}² = ${a * a}.`; }
-  const c = Math.round(a / 10) * 10, d = a - c, sg = d < 0 ? MINUS : "+", ad = Math.abs(d);
-  return `Passe par la dizaine ${c} : ${a} = ${c} ${sg} ${ad}. Donc ${a}² = ${c}² ${sg} 2 × ${c} × ${ad} + ${ad}² = ${c * c} ${sg} ${2 * c * ad} + ${d * d} = ${a * a}.`;
+  if (a <= 10) return meth("Table", `${a} × ${a} = ${a * a}.`);
+  if (a % 10 === 5) { const n = (a - 5) / 10; return meth("Finit par 5", `on calcule ${n} × ${n + 1} = ${n * (n + 1)}, puis on écrit 25 à la suite : ${a * a}.`); }
+  const c = Math.round(a / 10) * 10, d = Math.abs(a - c), lo = a - d, hi = a + d, other = lo === c ? hi : lo;
+  return meth("Voisins autour d'un rond", `${a}² = (${a} ${MINUS} ${d}) × (${a} + ${d}) + ${d}² = ${lo} × ${hi} + ${d * d}. Comme ${c} est rond : ${other} × ${c / 10} = ${fmt(other * c / 10)}, × 10 = ${fmt(other * c)}. Puis ${fmt(other * c)} + ${d * d} = ${fmt(a * a)}.`);
 }
 function whyFrac(n, d, k) {
   const X = d * k;
-  if (n === 1) return `Prendre ${frac(1, d)}, c'est diviser par ${d} : ${fmt(X)} ${DIV} ${d} = ${k}.`;
-  return `Divise d'abord par ${d} : ${fmt(X)} ${DIV} ${d} = ${k}. Puis multiplie par ${n} : ${k} × ${n} = ${n * k}.`;
+  if (n === 1) return meth("Un " + (d === 2 ? "demi" : d === 3 ? "tiers" : d === 4 ? "quart" : "sur " + d), `prendre ${frac(1, d)}, c'est diviser par ${d} : ${fmt(X)} ${DIV} ${d} = ${k}.`);
+  if (n === d - 1) return meth("Entier moins un morceau", `${frac(n, d)} = 1 ${MINUS} ${frac(1, d)}. ${fmt(X)} ${DIV} ${d} = ${k}, donc ${fmt(X)} ${MINUS} ${k} = ${n * k}.`);
+  if (n > d) { const w = Math.floor(n / d), rem = n % d; return meth("Entiers + reste", `${frac(n, d)} = ${w} + ${frac(rem, d)}. ${w} × ${fmt(X)} = ${fmt(w * X)}, et ${frac(rem, d)} de ${fmt(X)} = ${rem} × ${k} = ${rem * k}. Total ${fmt(n * k)}.`); }
+  return meth("Divise puis multiplie", `d'abord ${fmt(X)} ${DIV} ${d} = ${k}, puis × ${n} : ${k} × ${n} = ${n * k}.`);
 }
 function whyPct(p, x) {
-  const r = p * x / 100, t = x / 10;
-  if (p === 50) return `50 % = la moitié : ${fmt(x)} ${DIV} 2 = ${fmt(r)}.`;
-  if (p === 25) return `25 % = un quart : ${fmt(x)} ${DIV} 4 = ${fmt(r)}.`;
-  if (p === 75) return `75 % = trois quarts : ${fmt(x)} ${DIV} 4 = ${fmt(x / 4)}, puis × 3 = ${fmt(r)}.`;
-  if (p === 10) return `10 % = diviser par 10 : ${fmt(x)} ${DIV} 10 = ${fmt(r)}.`;
-  const a = Math.floor(p / 10);
+  const r = p * x / 100, t = x / 10, F = fmt;
+  if (p === 50) return meth("50 %", `c'est la moitié : ${F(x)} ${DIV} 2 = ${F(r)}.`);
+  if (p === 25) return meth("25 %", `c'est un quart : ${F(x)} ${DIV} 4 = ${F(r)}.`);
+  if (p === 75) return meth("75 %", `trois quarts : ${F(x)} ${DIV} 4 = ${F(x / 4)}, × 3 = ${F(r)}.`);
+  if (p === 20) return meth("20 %", `c'est un cinquième : ${F(x)} ${DIV} 5 = ${F(r)}.`);
+  if (p === 10) return meth("10 %", `on divise par 10 : ${F(x)} ${DIV} 10 = ${F(r)}.`);
+  if (p === 5) return meth("5 %", `la moitié de 10 % : ${F(t)} ${DIV} 2 = ${F(r)}.`);
+  if (p === 1) return meth("1 %", `on divise par 100 : ${F(r)}.`);
+  if (p === 100) return meth("100 %", `c'est le nombre lui-même : ${F(x)}.`);
+  if (p > 100) return meth("100 % + le reste", `${p} % = 100 % + ${p - 100} %. 100 % de ${F(x)} = ${F(x)}, et ${p - 100} % de ${F(x)} = ${F((p - 100) * x / 100)}. Total ${F(r)}.`);
+  if (p >= 90 && p < 100) return meth("Un rond moins un petit reste", `${p} % = 100 % ${MINUS} ${100 - p} % : ${F(x)} ${MINUS} ${F((100 - p) * x / 100)} = ${F(r)}.`);
+  if (p % 10 >= 7) { const up = p + 10 - p % 10, e = up - p; return meth("Arrondis puis corrige", `${p} % = ${up} % ${MINUS} ${e} %. ${up} % de ${F(x)} = ${F(up * x / 100)} et ${e} % = ${F(e * x / 100)}. ${F(up * x / 100)} ${MINUS} ${F(e * x / 100)} = ${F(r)}.`); }
+  const a = Math.floor(p / 10), b = p % 10;
   if (p % 5 === 0) {
     const half = p % 10 === 5;
-    let w = `10 % de ${fmt(x)} = ${fmt(t)}. `;
-    if (a > 0) w += `${p - (half ? 5 : 0)} % = ${a} × ${fmt(t)} = ${fmt(a * t)}. `;
-    if (half) w += `5 % = la moitié de 10 % = ${fmt(x / 20)}. `;
-    return w + `Total : ${fmt(r)}.`;
+    let w = `10 % de ${F(x)} = ${F(t)}. `;
+    if (a > 0) w += `${p - (half ? 5 : 0)} % = ${a} × ${F(t)} = ${F(a * t)}. `;
+    if (half) w += `5 % = la moitié de 10 % = ${F(x / 20)}. `;
+    return meth("Construis à partir de 10 %", w + `Total : ${F(r)}.`);
   }
-  const b = p % 10;
-  return `10 % de ${fmt(x)} = ${fmt(t)} et 1 % = ${fmt(x / 100)}. ${p} % = ${a} × 10 % + ${b} × 1 % = ${fmt(a * t)} + ${fmt(b * x / 100)} = ${fmt(r)}.`;
+  if (a === 0) return meth("Passe par 1 %", `1 % de ${F(x)} = ${F(x / 100)}. ${p} % = ${p} × ${F(x / 100)} = ${F(r)}.`);
+  return meth("Construis à partir de 10 % et 1 %", `10 % de ${F(x)} = ${F(t)} et 1 % = ${F(x / 100)}. ${p} % = ${a} × 10 % + ${b} × 1 % = ${F(a * t)} + ${F(b * x / 100)} = ${F(r)}.`);
+}
+function diagnose(given, ans) {
+  if (!isFinite(given)) return "";
+  const d = Math.round((given - ans) * 1e4) / 1e4, ad = Math.abs(d);
+  if (ans !== 0 && Math.abs(given + ans) < 1e-9) return "Tu as inversé le signe.";
+  if (ans !== 0 && Math.abs(given * 10 - ans) < 1e-9) return "Ta réponse est 10 fois trop petite : un zéro ou une virgule mal placée.";
+  if (ans !== 0 && Math.abs(given / 10 - ans) < 1e-9) return "Ta réponse est 10 fois trop grande : un zéro de trop.";
+  if (ad <= 2) return `Tu es à ${fmt(ad)} près : petite erreur de retenue ou de table, refais l'étape finale.`;
+  if (ad % 100 === 0) return `Écart de ${fmt(ad)} : retenue des centaines oubliée ou ajoutée en trop.`;
+  if (ad % 10 === 0) return `Écart de ${fmt(ad)} : retenue des dizaines oubliée ou ajoutée en trop.`;
+  if (Number.isInteger(given) && Number.isInteger(ans) && given % 10 === ans % 10) return "Le chiffre des unités est bon : l'erreur est dans les dizaines ou les centaines.";
+  return `Écart de ${fmt(ad)} avec la bonne réponse.`;
 }
 
 /* ---------- Générateurs : chacun renvoie { html, ans } ---------- */
@@ -717,8 +780,14 @@ const GEN = {
       items.push({ html: `${sideStr(L)} = ${sideStr(R)}`, bad: isBad, lv: evalSide(L), rv: evalSide(R) });
     }
     const ans = [...bad].sort((a, b) => a - b);
-    const why = "Calcule chaque côté puis compare :<br><br>" + items.map((it, i) =>
-      `<b>${i + 1}.</b> ${it.html}<br>&nbsp;&nbsp;&nbsp;→ ${fmt(it.lv)} ${it.bad ? "≠" : "="} ${fmt(it.rv)}, ${it.bad ? "<b>fausse</b>" : "juste"}`).join("<br>");
+    const quick = (it) => {
+      if (!it.bad) return "juste";
+      if (it.lv % 10 !== it.rv % 10) return `<b>fausse</b> : les chiffres des unités diffèrent (${it.lv % 10} et ${it.rv % 10}), pas besoin de tout calculer`;
+      if (it.lv % 9 !== it.rv % 9) return `<b>fausse</b> : preuve par 9 impossible (reste ${it.lv % 9} contre ${it.rv % 9})`;
+      return `<b>fausse</b> : écart de ${Math.abs(it.lv - it.rv)}`;
+    };
+    const why = "<b>Contrôle rapide :</b> compare d'abord les chiffres des unités des deux côtés. S'ils diffèrent, l'égalité est fausse sans calcul complet. Sinon, calcule les deux côtés.<br><br>" + items.map((it, i) =>
+      `<b>${i + 1}.</b> ${it.html}<br>&nbsp;&nbsp;&nbsp;→ ${fmt(it.lv)} ${it.bad ? "≠" : "="} ${fmt(it.rv)} : ${quick(it)}`).join("<br>");
     return { pick: true, items, ans, html: items.map((x) => x.html).join(" | "), why };
   }
 };
@@ -1433,7 +1502,10 @@ function endGame() {
   const ordered = [...g.items.filter((x) => !x.ok), ...g.items.filter((x) => x.ok)];
   $("tipsList").innerHTML = ordered.map((x) => {
     const q = x.pick ? "Égalités fausses : repère les intrus" : (x.hasSlot ? x.html.replace(SLOT, `<b>${fmt(x.ans)}</b>`) : `${x.html} = <b>${fmt(x.ans)}</b>`);
-    return `<details class="tipitem"><summary><span class="mark ${x.ok ? "ok" : "ko"}">${x.ok ? "✓" : "✗"}</span><span class="tq">${q}</span></summary><div class="why">${x.why || ""}</div></details>`;
+    let err = "";
+    if (!x.ok && !x.pick) err = `<b>Ton erreur :</b> ${fmt(x.given)} au lieu de ${fmt(x.ans)}. ${diagnose(x.given, x.ans)}<br><br>`;
+    else if (!x.ok && x.pick) { const miss = x.ans.filter((i) => !x.chosen.includes(i)), extra = x.chosen.filter((i) => !x.ans.includes(i)); err = `<b>Ton erreur :</b> ${extra.length ? "tu as coché à tort " + extra.map((i) => "n°" + (i + 1)).join(", ") + ". " : ""}${miss.length ? "Tu as oublié " + miss.map((i) => "n°" + (i + 1)).join(", ") + "." : ""}<br><br>`; }
+    return `<details class="tipitem"><summary><span class="mark ${x.ok ? "ok" : "ko"}">${x.ok ? "✓" : "✗"}</span><span class="tq">${q}</span></summary><div class="why">${err}${x.why || ""}</div></details>`;
   }).join("");
   $("tipsCard").hidden = true; $("tipsBtn").textContent = "Astuces";
   show("results");
