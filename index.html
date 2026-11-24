@@ -1262,7 +1262,7 @@ function startGame(kind) {
   G = daily
     ? Object.assign(base, { daily: true, ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, rng: mulberry32(seedOf("calcul-mental|" + dateKey())) })
     : psy0
-      ? Object.assign(base, { psy0: true, ops: [...PSY0_OPS], level: settings.level, timer: settings.timer || 600, count: 0 })
+      ? Object.assign(base, { psy0: true, ops: [...PSY0_OPS], level: 0, timer: settings.timer || 600, count: 0 })
       : Object.assign(base, { ops: [...settings.ops], level: settings.level, timer: settings.timer, count: settings.timer ? 0 : settings.count, weak: !!settings.weak });
   $("sTimeBox").hidden = false;
   $("timebar").hidden = !G.timer;
@@ -1287,6 +1287,7 @@ function updateClock() {
 function nextQuestion() {
   let q, op, guard = 0;
   if (G.daily) G.level = dailyLevel(G.items.length);
+  else if (G.psy0) G.level = Math.min(2, Math.floor(G.items.length / 12)); // Puceau, puis Intermédiaire, puis Difficile : jamais plus
   rng = G.rng || Math.random;
   try { do { op = G.daily ? pick(G.ops) : chooseOp(); q = GEN[op](G.level); } while (q.html === G.last && guard++ < 20); }
   finally { rng = Math.random; }
@@ -1412,7 +1413,7 @@ function endGame() {
     $("shareText").textContent = shareTextFor(day, d[day]);
   }
   sfx.end();
-  $("resLabel").textContent = g.daily ? `Défi du jour · ${fmtDay(dateKey())}` : g.psy0 ? `Séance PSY0 · ${LEVELS[g.level].name} · ${fmtTime(g.timer * 1000)}` : `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
+  $("resLabel").textContent = g.daily ? `Défi du jour · ${fmtDay(dateKey())}` : g.psy0 ? `Séance PSY0 · ${fmtTime(g.timer * 1000)}` : `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
   $("resScore").innerHTML = g.timer ? `${g.correct}<small> justes</small>` : `${g.correct}<small>/${total}</small>`;
   $("resMsg").textContent = acc === 100 ? "Sans faute, bravo !" : acc >= 80 ? "Très bien, continue comme ça !" : acc >= 50 ? "Pas mal, regarde les corrections ci-dessous." : "Courage, chaque séance compte.";
   $("resRec").hidden = !newRec;
