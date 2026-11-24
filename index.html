@@ -172,14 +172,17 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
 .pad .go { grid-column: 1 / -1; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-size: 18px; font-weight: 700; }
 .pad.pickmode button:not(.go) { display: none; }
 .pickq { font-family: var(--font-body); font-size: 16px; width: 100%; }
-.picks { display: grid; gap: 8px; width: 100%; }
-.pick { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%; min-height: 52px; border: 2px solid var(--line); background: var(--surface); border-radius: 12px; padding: 8px 12px; font-size: clamp(17px, 5vw, 22px); font-variant-numeric: tabular-nums; }
+.picks { display: grid; gap: 6px; width: 100%; }
+.pick { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%; min-height: 44px; border: 2px solid var(--line); background: var(--surface); border-radius: 12px; padding: 6px 12px; font-size: clamp(16px, 4.8vw, 21px); font-variant-numeric: tabular-nums; }
 .pick .n { color: var(--muted); font-size: 13px; min-width: 1.1em; }
 .pick[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .pick.reveal { cursor: default; }
 .pick.isfalse { border-color: var(--bad); background: var(--bad-soft); }
 .pick.isfalse::after { content: "Fausse"; margin-left: auto; font-size: 12px; font-weight: 700; color: var(--bad); }
 .pick.isfalse[aria-pressed="false"]::after { content: "Fausse (oubliée)"; }
+.pick.none { min-height: 40px; font-size: 15px; color: var(--muted); }
+.pick.none.right { border-color: var(--ok); background: var(--ok-soft); color: var(--fg); }
+.pick.none.wrong { border-color: var(--bad); }
 .pick.wrong { border-color: var(--bad); }
 .pick.wrong::after { content: "Elle était juste"; margin-left: auto; font-size: 12px; font-weight: 700; color: var(--muted); }
 .pad .wide { grid-column: span 3; }
@@ -763,34 +766,139 @@ const GEN = {
     else why += hidePos === 0 ? `Le trou est le nombre qu'on a divisé par ${fmt(other)} : on remonte avec ${v} ${TIMES} ${fmt(other)} = ${fmt(ans)}.` : `Le trou est le diviseur : ${fmt(other)} ${DIV} ${v} = ${fmt(ans)}.`;
     return { html: `${render(L, 0)} = ${render(R, 1)}`, ans, hasSlot: true, why };
   },
-  /* Égalités fausses, façon PSY0 : une liste d'égalités dont 1 à 3 sont fausses, il faut les repérer */
-  intrus(l) {
-    const [n, maxFalse] = [[4, 2], [5, 2], [6, 3], [8, 4], [10, 5]][l];
-    const nf = rnd(1, maxFalse), bad = new Set();
-    while (bad.size < nf) bad.add(rnd(0, n - 1));
-    const items = [], seen = new Set();
-    for (let i = 0; i < n; i++) {
-      let c, guard = 0;
-      do { c = eqCore(l); } while (seen.has(sideStr(c.L) + sideStr(c.R)) && guard++ < 30);
-      seen.add(sideStr(c.L) + sideStr(c.R));
-      let { L, R } = c;
-      const isBad = bad.has(i);
-      if (isBad) { if (rng() < .5) R = falsify(R, l); else L = falsify(L, l); }
-      if (rng() < .5) [L, R] = [R, L];
-      items.push({ html: `${sideStr(L)} = ${sideStr(R)}`, bad: isBad, lv: evalSide(L), rv: evalSide(R) });
-    }
-    const ans = [...bad].sort((a, b) => a - b);
-    const quick = (it) => {
-      if (!it.bad) return "juste";
-      if (it.lv % 10 !== it.rv % 10) return `<b>fausse</b> : les chiffres des unités diffèrent (${it.lv % 10} et ${it.rv % 10}), pas besoin de tout calculer`;
-      if (it.lv % 9 !== it.rv % 9) return `<b>fausse</b> : preuve par 9 impossible (reste ${it.lv % 9} contre ${it.rv % 9})`;
-      return `<b>fausse</b> : écart de ${Math.abs(it.lv - it.rv)}`;
-    };
-    const why = "<b>Contrôle rapide :</b> compare d'abord les chiffres des unités des deux côtés. S'ils diffèrent, l'égalité est fausse sans calcul complet. Sinon, calcule les deux côtés.<br><br>" + items.map((it, i) =>
-      `<b>${i + 1}.</b> ${it.html}<br>&nbsp;&nbsp;&nbsp;→ ${fmt(it.lv)} ${it.bad ? "≠" : "="} ${fmt(it.rv)} : ${quick(it)}`).join("<br>");
-    return { pick: true, items, ans, html: items.map((x) => x.html).join(" | "), why };
-  }
+  /* Planches d'égalités façon PSY0 : voir planche() */
+  intrus(l) { return planche(l); }
 };
+
+/* ---------- Planches PSY0 : 9 égalités, 0 à 4 fausses, comme au vrai test ---------- */
+const PLC = [
+  { num: 12, vmin: -15, vmax: 40, sq: 7, n: 6, maxFalse: 2 },
+  { num: 20, vmin: -60, vmax: 150, sq: 13, n: 9, maxFalse: 4 },
+  { num: 40, vmin: -120, vmax: 400, sq: 20, n: 9, maxFalse: 4 },
+  { num: 99, vmin: -300, vmax: 1000, sq: 30, n: 9, maxFalse: 4 },
+  { num: 300, vmin: -1000, vmax: 5000, sq: 50, n: 9, maxFalse: 4 }
+];
+const termsStr = (ts) => ts.map((t, i) => (i === 0 ? String(t) : t < 0 ? "-" + (-t) : "+" + t)).join("");
+const divisors = (n, lo, hi) => { const o = []; for (let d = lo; d <= hi && d <= n; d++) if (n % d === 0) o.push(d); return o; };
+function sumNode(v, k, C) {
+  for (let tries = 0; tries < 25; tries++) {
+    const ts = []; let rest = v;
+    for (let i = 0; i < k - 1; i++) { let t = rnd(1, C.num); if (rng() < .45) t = -t; ts.push(t); rest -= t; }
+    if (rest === 0) continue;
+    ts.push(rest);
+    for (let i = ts.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [ts[i], ts[j]] = [ts[j], ts[i]]; }
+    if (ts[0] < 0 && rng() < .5) { const q = ts.findIndex((t) => t > 0); if (q > 0) [ts[0], ts[q]] = [ts[q], ts[0]]; }
+    return { s: termsStr(ts), v };
+  }
+  return { s: termsStr([v - 1, 1]), v };
+}
+function plBuild(form, v, C) {
+  const A = Math.abs(v);
+  switch (form) {
+    case "num": return { s: String(v), v };
+    case "sum2": return sumNode(v, 2, C);
+    case "sum3": return sumNode(v, 3, C);
+    case "prod": {
+      if (v <= 0) return null;
+      const ds = divisors(v, 2, Math.min(v / 2, C.num * 2)).filter((d) => v / d <= C.num * 4); if (!ds.length) return null;
+      const d = pick(ds), q = v / d; return { s: rng() < .5 ? `${d}*${q}` : `${q}*${d}`, v };
+    }
+    case "div": {
+      const b = rnd(2, Math.max(4, Math.min(C.num > 40 ? 40 : 12, C.num))), a = v * b;
+      return Math.abs(a) > C.vmax * 14 ? null : { s: `${a}/${b}`, v };
+    }
+    case "sq": { if (v <= 0) return null; const r = Math.round(Math.sqrt(v)); return r * r === v && r >= 2 && r <= C.sq ? { s: `${r}²`, v } : null; }
+    case "sqsum": {
+      const rs = []; for (let r = 2; r <= C.sq; r++) { const k = v - r * r; if (k !== 0 && Math.abs(k) <= C.num * 2) rs.push(r); }
+      if (!rs.length) return null;
+      const r = pick(rs), k = v - r * r, c = v + r * r;
+      if (c >= 1 && c <= C.num * 3 && rng() < .3) return { s: `${c}-${r}²`, v };
+      return k > 0 ? { s: rng() < .5 ? `${r}²+${k}` : `${k}+${r}²`, v } : { s: `${r}²-${-k}`, v };
+    }
+    case "sqparen": {
+      if (v <= 0) return null; const r = Math.round(Math.sqrt(v)); if (r * r !== v || r < 2 || r > C.sq) return null;
+      return { s: `(${sumNode(rng() < .5 ? r : -r, 2, C).s})²`, v };
+    }
+    case "muladd": {
+      const a = rnd(2, Math.min(12, C.num)), b = rnd(2, Math.min(12, C.num)), p = a * b;
+      if (rng() < .3) { const c = v + p; return c >= 1 && c <= C.num * 3 ? { s: `${c}-${a}*${b}`, v } : null; }
+      const k = v - p; if (k === 0 || Math.abs(k) > C.num * 3) return null;
+      return { s: k > 0 ? (rng() < .5 ? `${a}*${b}+${k}` : `${k}+${a}*${b}`) : `${a}*${b}-${-k}`, v };
+    }
+    case "paren": {
+      if (v === 0) return null; const ds = divisors(A, 2, Math.min(12, C.num)); if (!ds.length) return null;
+      const a = pick(ds), inner = sumNode(v / a, 2, C); return { s: rng() < .5 ? `${a}*(${inner.s})` : `(${inner.s})*${a}`, v };
+    }
+    case "subparen": { const c = rnd(1, C.num), w = c - v; if (w === 0 || Math.abs(w) > C.num * 3) return null; return { s: `${c}-(${sumNode(w, 2, C).s})`, v }; }
+    case "triple": {
+      if (v <= 1) return null; const a1 = divisors(v, 2, Math.min(15, C.num)); if (!a1.length) return null;
+      const a = pick(a1), rest = v / a, b1 = divisors(rest, 2, Math.min(15, C.num)); if (!b1.length) return null;
+      const b = pick(b1), c = rest / b; return c < 2 ? null : { s: `${a}*${b}*${c}`, v };
+    }
+  }
+  return null;
+}
+function plBadValue(v) {
+  const r = rng(), mag = Math.max(10, Math.abs(v));
+  const d = r < .12 ? rnd(1, 3) : r < .45 ? rnd(4, 15) : rnd(10, Math.max(40, Math.round(mag * .7)));
+  return v + (rng() < .5 ? d : -d);
+}
+const PL_W = [["sum2", 3], ["sum3", 2], ["prod", 3], ["div", 2], ["sq", 2], ["sqsum", 2], ["sqparen", 1.5], ["muladd", 2], ["paren", 2], ["subparen", 1.5], ["triple", 1.5]];
+function plWeights(l) { return l === 0 ? PL_W.filter((x) => ["sum2", "prod", "div", "sq", "sqsum"].includes(x[0])) : PL_W; }
+function wshuffle(list) { // ordre aléatoire pondéré
+  const a = list.map(([f, w]) => [f, -Math.log(rng() || 1e-9) / w]); return a.sort((x, y) => x[1] - y[1]).map((x) => x[0]);
+}
+// une valeur adaptée à la forme (pour que carrés, produits, parenthèses apparaissent vraiment)
+function plPickV(form, C) {
+  const small = Math.min(12, C.num), neg = () => rng() < .3;
+  switch (form) {
+    case "sq": case "sqparen": { const r = rnd(2, C.sq); return r * r; }
+    case "prod": return rnd(2, small) * rnd(2, Math.min(C.num, 15));
+    case "triple": return rnd(2, Math.min(small, 9)) * rnd(2, Math.min(small, 9)) * rnd(2, Math.min(small, 9));
+    case "paren": { const w = rnd(1, C.num) * (neg() ? -1 : 1); return rnd(2, small) * (w || 1); }
+    default: return neg() ? rnd(C.vmin, -1) : rnd(1, C.vmax);
+  }
+}
+function plEq(l, makeBad, C) {
+  const W = plWeights(l);
+  for (let t = 0; t < 80; t++) {
+    const useNum = rng() < .45, order = wshuffle(W);
+    const f1 = order[0], v = plPickV(f1, C);
+    let L = useNum ? plBuild("num", v, C) : plBuild(f1, v, C);
+    if (!L) continue;
+    const vr = makeBad ? plBadValue(v) : v; let R = null;
+    for (const f of useNum ? order : wshuffle(W.filter((x) => x[0] !== f1))) { R = plBuild(f, vr, C); if (R && R.s !== L.s) break; R = null; }
+    if (useNum && L.s !== String(v)) continue;
+    if (!R) continue;
+    if (useNum) { /* un côté = le nombre, l'autre = une forme complexe construite pour valoir vr */ }
+    return rng() < .5 ? { L, R } : { L: R, R: L };
+  }
+  return { L: sumNode(5, 2, C), R: sumNode(makeBad ? 8 : 5, 2, C) };
+}
+function planche(l) {
+  const C = PLC[l], n = C.n, w = [10, 25, 30, 15, 20].slice(0, C.maxFalse + 1), tot = w.reduce((a, b) => a + b, 0);
+  let r = rng() * tot, nf = 0; for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { nf = i; break; } }
+  const bad = new Set(); while (bad.size < nf) bad.add(rnd(0, n - 1));
+  const items = [], seen = new Set();
+  for (let i = 0; i < n; i++) {
+    let e, guard = 0; do { e = plEq(l, bad.has(i), C); } while (seen.has(e.L.s + "=" + e.R.s) && guard++ < 20);
+    seen.add(e.L.s + "=" + e.R.s);
+    items.push({ html: `${e.L.s} = ${e.R.s}`, bad: bad.has(i), lv: e.L.v, rv: e.R.v });
+  }
+  const ans = [...bad].sort((a, b) => a - b);
+  const quick = (it) => {
+    if (!it.bad) return "juste";
+    if ((it.lv < 0) !== (it.rv < 0)) return "<b>fausse</b> : un côté est négatif et l'autre positif";
+    const ul = Math.abs(it.lv) % 10, ur = Math.abs(it.rv) % 10;
+    if (ul !== ur) return `<b>fausse</b> : les chiffres des unités diffèrent (${ul} et ${ur}), pas besoin de tout calculer`;
+    const ml = ((it.lv % 9) + 9) % 9, mr = ((it.rv % 9) + 9) % 9;
+    if (ml !== mr) return `<b>fausse</b> : preuve par 9 impossible (reste ${ml} contre ${mr})`;
+    return `<b>fausse</b> : écart de ${fmt(Math.abs(it.lv - it.rv))}`;
+  };
+  const why = "<b>Méthode :</b> calcule d'abord le côté le plus simple, puis compare avec l'autre. Pour aller vite, regarde le signe et le chiffre des unités des deux côtés : s'ils diffèrent, l'égalité est fausse sans calcul complet. Il peut aussi n'y avoir aucune égalité fausse.<br><br>" +
+    items.map((it, i) => `<b>${i + 1}.</b> ${it.html}<br>&nbsp;&nbsp;&nbsp;→ ${fmt(it.lv)} ${it.bad ? "≠" : "="} ${fmt(it.rv)} : ${quick(it)}`).join("<br>");
+  return { pick: true, items, ans, html: items.map((x) => x.html).join(" | "), why };
+}
 const sideStr = (s) => `${fmt(s[0])} ${s[1]} ${fmt(s[2])}`;
 const evalSide = (s) => s[1] === "+" ? s[0] + s[2] : s[1] === MINUS ? s[0] - s[2] : s[1] === TIMES ? s[0] * s[2] : s[0] / s[2];
 function falsify(s, l) {
@@ -835,7 +943,7 @@ const OPS = [
   { id: "div", label: "Division", sym: DIV },
   { id: "chain", label: "Opérations longues", sym: "…" },
   { id: "eq", label: "Égalités à trou (PSY0)", sym: "=" },
-  { id: "intrus", label: "Égalités fausses (PSY0)", sym: "≠" },
+  { id: "intrus", label: "Planches PSY0 (égalités fausses)", sym: "≠" },
   { id: "frac", label: "Fractions", sym: "½" },
   { id: "pct", label: "Pourcentages", sym: "%" },
   { id: "dec", label: "Décimaux", sym: "," },
@@ -1002,7 +1110,7 @@ function refreshHome() {
     $("optWeak").innerHTML = `<span class="sym">◎</span>Insister sur mes points faibles`; }
   $("optSound").setAttribute("aria-pressed", String(settings.sound !== false));
   $("optWeak").setAttribute("aria-pressed", String(!!settings.weak));
-  $("psyBtn").textContent = "Séance type PSY0 · " + fmtTime((settings.timer || 600) * 1000);
+  $("psyBtn").textContent = "Séance PSY0 (planches) · " + fmtTime((settings.timer || 600) * 1000);
   renderDaily(); renderProgress(); if (mainTab === "stats") renderStats();
   const r = store.get("records", {})[recordKey()];
   $("recordLine").textContent = r ? "Record avec ces réglages : " + describeRecord(r) : "";
@@ -1322,7 +1430,7 @@ function show(id) {
   document.body.classList.toggle("playing", id === "game");
   window.scrollTo(0, 0);
 }
-const PSY0_OPS = ["chain", "chain", "eq", "eq", "intrus", "add", "sub", "mul", "mul", "div", "frac", "pct"];
+const PSY0_OPS = ["intrus"];
 function startGame(kind) {
   const daily = kind === true, psy0 = kind === "psy0";
   if (daily ? store.get("daily", {})[dateKey()] : !psy0 && !settings.ops.length) return;
@@ -1331,7 +1439,7 @@ function startGame(kind) {
   G = daily
     ? Object.assign(base, { daily: true, ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, rng: mulberry32(seedOf("calcul-mental|" + dateKey())) })
     : psy0
-      ? Object.assign(base, { psy0: true, ops: [...PSY0_OPS], level: 0, timer: settings.timer || 600, count: 0 })
+      ? Object.assign(base, { psy0: true, ops: [...PSY0_OPS], level: 1, timer: settings.timer || 600, count: 0 })
       : Object.assign(base, { ops: [...settings.ops], level: settings.level, timer: settings.timer, count: settings.timer ? 0 : settings.count, weak: !!settings.weak });
   $("sTimeBox").hidden = false;
   $("timebar").hidden = !G.timer;
@@ -1356,13 +1464,13 @@ function updateClock() {
 function nextQuestion() {
   let q, op, guard = 0;
   if (G.daily) G.level = dailyLevel(G.items.length);
-  else if (G.psy0) G.level = Math.min(2, Math.floor(G.items.length / 12)); // Puceau, puis Intermédiaire, puis Difficile : jamais plus
+  else if (G.psy0) G.level = Math.min(2, 1 + Math.floor(G.items.length / 8)); // planches : niveau Intermédiaire (celui des vraies planches), puis Difficile
   rng = G.rng || Math.random;
   try { do { op = G.daily ? pick(G.ops) : chooseOp(); q = GEN[op](G.level); } while (q.html === G.last && guard++ < 20); }
   finally { rng = Math.random; }
   if (q.why) q.why = q.why.replace(/\b\d{5,}\b/g, (m) => m.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F"));
   q.op = op; q.ans = q.pick ? q.ans : round4(q.ans); q.t0 = performance.now();
-  G.q = q; G.last = q.html; G.input = ""; G.waiting = false; G.sel = new Set();
+  G.q = q; G.last = q.html; G.input = ""; G.waiting = false; G.sel = new Set(); G.none = false;
   $("answer").hidden = !!q.pick;
   $("pad").classList.toggle("pickmode", !!q.pick);
   $("question").classList.toggle("pickq", !!q.pick);
@@ -1370,7 +1478,8 @@ function nextQuestion() {
     $("kind").textContent = "Touche les égalités fausses";
     $("question").classList.remove("long");
     $("question").innerHTML = '<div class="picks">' + q.items.map((it, i) =>
-      `<button type="button" class="pick" data-i="${i}" aria-pressed="false"><span class="n">${i + 1}</span><span>${it.html}</span></button>`).join("") + "</div>";
+      `<button type="button" class="pick" data-i="${i}" aria-pressed="false"><span class="n">${i + 1}</span><span>${it.html}</span></button>`).join("") +
+      `<button type="button" class="pick none" data-none="1" aria-pressed="false"><span class="n">0</span><span>Aucune n'est fausse</span></button></div>`;
   } else {
     $("kind").textContent = OP_BY_ID[op].label + (q.hint ? " · " + q.hint : "");
     $("question").innerHTML = q.hasSlot ? q.html : `${q.html} = ${SLOT}`;
@@ -1394,6 +1503,7 @@ function press(k) {
   if (G.waiting) { if (k === "ok") afterAnswer(); return; }
   if (G.q.pick) {
     if (k === "ok") submitPick();
+    else if (k === "0") toggleNone();
     else if (/^[1-9]$/.test(k) && +k <= G.q.items.length) togglePick(+k - 1);
     return;
   }
@@ -1405,26 +1515,34 @@ function press(k) {
   // Validation automatique dès que la réponse juste est tapée en entier
   if (k !== "del" && k !== "," && parseInput(G.input) === G.q.ans && G.input.replace(",", "").length >= fmt(G.q.ans).replace(/[, ]/g, "").length) submit(true);
 }
+function toggleNone() {
+  if (!G || !G.q.pick || G.waiting) return;
+  G.none = !G.none; if (G.none) G.sel.clear();
+  $("question").querySelectorAll("button.pick[data-i]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+  const nb = $("question").querySelector("button[data-none]"); if (nb) nb.setAttribute("aria-pressed", String(G.none));
+}
 function togglePick(i) {
   if (!G || !G.q.pick || G.waiting) return;
+  if (G.none) { G.none = false; const nb = $("question").querySelector("button[data-none]"); if (nb) nb.setAttribute("aria-pressed", "false"); }
   if (G.sel.has(i)) G.sel.delete(i); else G.sel.add(i);
   const b = $("question").querySelector(`button[data-i="${i}"]`);
   if (b) b.setAttribute("aria-pressed", String(G.sel.has(i)));
 }
 function submitPick() {
   const chosen = [...G.sel].sort((a, b) => a - b);
-  if (!chosen.length) { $("question").classList.add("shake"); setTimeout(() => $("question").classList.remove("shake"), 260); return; }
+  if (!chosen.length && !G.none) { $("question").classList.add("shake"); setTimeout(() => $("question").classList.remove("shake"), 260); return; }
   const q = G.q, ok = chosen.join() === q.ans.join();
   G.items.push({ pick: true, items: q.items, ans: q.ans, chosen, op: q.op, ok, why: q.why, ms: performance.now() - q.t0 }); bump(q.op, ok);
-  $("question").querySelectorAll("button.pick").forEach((b, i) => {
+  $("question").querySelectorAll("button.pick[data-i]").forEach((b, i) => {
     b.classList.add("reveal"); b.disabled = true;
     if (q.items[i].bad) b.classList.add("isfalse"); else if (G.sel.has(i)) b.classList.add("wrong");
   });
+  { const nb = $("question").querySelector("button[data-none]"); if (nb) { nb.disabled = true; nb.classList.add("reveal"); if (!q.ans.length) nb.classList.add("right"); else if (G.none) nb.classList.add("wrong"); } }
   G.waiting = true;
   if (ok) { G.correct++; sfx.ok(); setTimeout(() => { if (G && G.waiting) afterAnswer(); }, 700); }
   else {
     $("go").textContent = "Suivant";
-    oops("Les fausses étaient : <b>" + q.ans.map((i) => "n°" + (i + 1)).join(", ") + "</b>");
+    oops(q.ans.length ? "Les fausses étaient : <b>" + q.ans.map((i) => "n°" + (i + 1)).join(", ") + "</b>" : "<b>Aucune</b> n'était fausse");
   }
 }
 function submit() {
@@ -1522,7 +1640,7 @@ $("psyBtn").onclick = () => startGame("psy0");
 $("again").onclick = () => startGame();
 $("menu").onclick = () => { show("home"); renderHome(); };
 $("quit").onclick = () => { if (G && G.daily && !confirm("Abandonner le défi ? Ton score du jour sera enregistré tel quel, sans seconde chance.")) return; endGame(); };
-$("question").addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) togglePick(+b.dataset.i); });
+$("question").addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) return togglePick(+b.dataset.i); if (e.target.closest("button[data-none]")) toggleNone(); });
 $("pad").addEventListener("click", (e) => { const b = e.target.closest("button[data-k]"); if (b) press(b.dataset.k); });
 document.addEventListener("keydown", (e) => {
   if (!G) { if (e.key === "Enter" && !$("results").hidden) startGame(); return; }
