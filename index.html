@@ -1675,9 +1675,8 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "Escape") endGame();
 });
 
-/* Pas de zoom : ni double tape, ni pincement (iOS ignore user-scalable) */
+/* Pas de zoom : le double tape est bloqué par touch-action, le pincement iOS par ces événements */
 ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault()));
-{ let lastTouch = 0; document.addEventListener("touchend", (e) => { const t = Date.now(); if (t - lastTouch < 350 && e.target.closest && !e.target.closest("input")) e.preventDefault(); lastTouch = t; }, { passive: false }); }
 
 /* ---------- Installation obligatoire : l'appli ne s'ouvre que depuis l'écran d'accueil ---------- */
 const IC = {
