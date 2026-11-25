@@ -719,64 +719,120 @@ const GEN = {
     return { html, ans: total, long: true, why };
   },
   /* Égalités à trou, façon PSY0 : 24 ÷ 2 = 2 × ? */
-  /* Conversions et grandeurs (aviation) : la réponse est acceptée à quelques % près, comme en calcul mental réel */
+  /* Grandeurs et conversions (aviation) : réponse acceptée à 5 % près par défaut, comme en vrai calcul mental.
+     Les réponses sont toujours positives (le clavier n'a pas de signe moins). */
   conv(l) {
-    const r1 = (x) => Math.round(x * 10) / 10;
-    // t = tolérance relative, ta = tolérance absolue minimale ; exact = pas de tolérance
+    const r1 = (x) => Math.round(x * 10) / 10, r2 = (x) => Math.round(x * 100) / 100, F = fmt;
+    const nn = (x) => (x >= 20 ? Math.round(x) : r1(x));
     const Q = (left, unit, exact, why, o) => {
-      o = o || {}; const ans = exact >= 20 ? Math.round(exact) : r1(exact);
-      const tol = o.exact ? 0 : Math.max((o.t || .02) * exact, o.ta || .05);
-      return { html: `${left} = ${SLOT} ${unit}`, ans, tol, hasSlot: true,
-        hint: o.exact ? "exact" : `à ${Math.round((o.t || .02) * 100)} % près`,
-        why: why + (o.exact ? "" : ` Valeur exacte : ${fmt(ans)} (réponse acceptée à ${Math.round((o.t || .02) * 100)} % près).`) };
+      o = o || {}; const t = o.t || .05;
+      const ans = o.exact ? r2(exact) : o.dp ? Math.round(exact * 10 ** o.dp) / 10 ** o.dp : nn(exact);
+      const tol = o.exact ? 0 : Math.max(t * Math.abs(exact), o.ta || .05);
+      return { html: `${left} = ${SLOT} ${unit}`, ans, tol, center: o.exact ? undefined : exact, rule: o.rule, hasSlot: true,
+        hint: o.exact ? "exact" : `à ${Math.round(t * 100)} % près`,
+        why: why + (o.exact ? "" : ` Valeur exacte : ${F(ans)} (réponse acceptée à ${Math.round(t * 100)} % près).`) };
     };
-    const T0 = [
-      () => { const n = 10 * rnd(1, 12); return Q(`${n} USG`, "L", n * 3.785, `1 USG ≈ 3,8 L. ${n} × 3,8 = ${fmt(n * 3.8)}.`); },
-      () => { const n = 10 * rnd(3, 40); return Q(`${n} L`, "USG", n / 3.785, `1 USG ≈ 3,8 L, donc on divise par 3,8 (ou par 4 puis on ajoute 5 %). ${n} ÷ 3,8 ≈ ${fmt(r1(n / 3.8))}.`); },
-      () => { const n = 10 * rnd(2, 30); return Q(`${n} kg`, "lb", n * 2.2046, `1 kg ≈ 2,2 lb : on double puis on ajoute 10 %. ${n} × 2 = ${n * 2}, + ${fmt(n * .2)} = ${fmt(n * 2.2)}.`); },
-      () => { const n = 11 * rnd(2, 30); return Q(`${n} lb`, "kg", n / 2.2046, `1 kg ≈ 2,2 lb. ${n} ÷ 2,2 = ${fmt(r1(n / 2.2))}.`); },
-      () => { const n = 10 * rnd(2, 30); return Q(`${n} NM`, "km", n * 1.852, `1 NM ≈ 1,85 km : presque 2, moins 7 %. ${n} × 1,85 = ${fmt(r1(n * 1.85))}.`); },
-      () => { const n = 10 * rnd(3, 40); return Q(`${n} km`, "NM", n / 1.852, `1 NM ≈ 1,85 km. ${n} ÷ 1,85 ≈ ${fmt(r1(n / 1.85))}.`); },
-      () => { const h = pick([1.5, 2.5, 3.5, 0.75, 1.25, 2.25, 4.5]); return Q(`${fmt(h)} h`, "min", h * 60, `${fmt(h)} × 60 = ${fmt(h * 60)}.`, { exact: true }); },
-      () => { const m = 6 * rnd(5, 40); return Q(`${m} min`, "h", m / 60, `${m} ÷ 60 = ${fmt(m / 60)}.`, { exact: true }); }
+    const rg = (a, b, k) => k * rnd(a / k, b / k);
+    const ITEMS = [
+      /* ----- Longueur ----- */
+      { c: "Longueur", lo: 0, hi: 2, f: () => { const n = 10 * rnd(1, 15), ru = n * 1.85; return Q(`${n} NM`, "km", n * 1.852, `1 NM ≈ 1,85 km (presque 2, moins 7 %). ${n} × 1,85 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Longueur", lo: 0, hi: 2, f: () => { const n = 10 * rnd(2, 40), ru = n / 1.85; return Q(`${n} km`, "NM", n / 1.852, `1 NM ≈ 1,85 km. ${n} ÷ 1,85 ≈ ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Longueur", lo: 0, hi: 1, f: () => { const x = rnd(21, 95) / 10; return Q(`${F(x)} km`, "m", x * 1000, `1 km = 1000 m : ${F(x)} × 1000 = ${F(r2(x * 1000))}.`, { exact: true }); } },
+      { c: "Longueur", lo: 1, hi: 4, f: () => { const n = 100 * rnd(2, l >= 3 ? 90 : 40), ru = n * .3; return Q(`${F(n)} ft`, "m", n * .3048, `1 ft ≈ 0,3 m. ${F(n)} × 0,3 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Longueur", lo: 1, hi: 4, f: () => { const n = 100 * rnd(2, l >= 3 ? 90 : 40), ru = n * 3.3; return Q(`${F(n)} m`, "ft", n * 3.2808, `1 m ≈ 3,3 ft. ${F(n)} × 3,3 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Longueur", lo: 1, hi: 3, f: () => { const n = rnd(2, 40), ru = n * 2.5; return Q(`${n} in`, "cm", n * 2.54, `1 in = 2,54 cm, donc environ × 2,5 : ${n} × 2,5 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Longueur", lo: 1, hi: 3, f: () => { const n = 5 * rnd(4, 40), ru = n * .4; return Q(`${n} cm`, "in", n / 2.54, `1 in ≈ 2,5 cm, donc on multiplie par 0,4 : ${n} × 0,4 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Longueur", lo: 2, hi: 4, f: () => { const n = 10 * rnd(2, 30), ru = n * 1.6; return Q(`${n} SM`, "km", n * 1.609, `1 SM (mile terrestre) ≈ 1,6 km. ${n} × 1,6 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Longueur", lo: 2, hi: 4, f: () => { const n = 10 * rnd(3, 50), ru = n * 1.15; return Q(`${n} NM`, "SM", n * 1.1508, `1 NM ≈ 1,15 SM : on ajoute 15 %. ${n} + ${F(r1(n * .15))} = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Longueur", lo: 2, hi: 4, f: () => { const a = rnd(1, 9), b = rnd(1, 59); return Q(`Écart de latitude de ${a}° ${b}'`, "NM", a * 60 + b, `1' de latitude = 1 NM et 1° = 60'. ${a} × 60 + ${b} = ${a * 60 + b}.`, { exact: true }); } },
+      { c: "Longueur", lo: 3, hi: 4, f: () => { const n = 5 * rnd(6, 45), ru = n * 30; return Q(`FL ${n}`, "m", n * 30.48, `FL ${n} = ${F(n * 100)} ft. × 0,3 = ${F(ru)}.`, { rule: ru }); } },
+      /* ----- Masse ----- */
+      { c: "Masse", lo: 0, hi: 1, f: () => { const x = pick([.5, .75, 1.2, 1.5, 2.4, 3.6]); return Q(`${F(x)} t`, "kg", x * 1000, `1 t = 1000 kg : ${F(x)} × 1000 = ${F(x * 1000)}.`, { exact: true }); } },
+      { c: "Masse", lo: 0, hi: 3, f: () => { const n = 10 * rnd(2, 30), ru = n * 2.2; return Q(`${n} kg`, "lb", n * 2.2046, `1 kg ≈ 2,2 lb : on double puis on ajoute 10 %. ${n} × 2 = ${n * 2}, + ${F(n * .2)} = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Masse", lo: 0, hi: 3, f: () => { const n = 11 * rnd(2, 30), ru = n / 2.2; return Q(`${n} lb`, "kg", n / 2.2046, `1 kg ≈ 2,2 lb. ${n} ÷ 2,2 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Masse", lo: 1, hi: 3, f: () => { const n = 2 * rnd(2, 20), ru = n * 28; return Q(`${n} oz`, "g", n * 28.35, `1 oz ≈ 28 g. ${n} × 28 = ${F(ru)}.`, { rule: ru }); } },
+      { c: "Masse", lo: 2, hi: 3, f: () => { const n = 100 * rnd(1, 12), ru = n / 28; return Q(`${n} g`, "oz", n / 28.35, `1 oz ≈ 28 g. ${n} ÷ 28 ≈ ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Masse", lo: 3, hi: 4, f: () => { const n = 100 * rnd(15, 60), ru = n / 2.2; return Q(`${F(n)} lb`, "kg", n / 2.2046, `1 kg ≈ 2,2 lb. ${F(n)} ÷ 2,2 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Masse", lo: 4, hi: 4, f: () => { const n = 10 * rnd(20, 120), ru = n * 2.2; return Q(`${n} kg`, "lb", n * 2.2046, `On double puis on ajoute 10 % : ${n} × 2 = ${n * 2}, + ${F(n * .2)} = ${F(r1(ru))}.`, { rule: ru }); } },
+      /* ----- Volume ----- */
+      { c: "Volume", lo: 0, hi: 2, f: () => { const n = 25 * rnd(2, 16); return Q(`${n} cl`, "L", n / 100, `100 cl = 1 L : ${n} ÷ 100 = ${F(n / 100)}.`, { exact: true }); } },
+      { c: "Volume", lo: 0, hi: 3, f: () => { const n = 10 * rnd(1, 12), ru = n * 3.8; return Q(`${n} USG`, "L", n * 3.785, `1 USG ≈ 3,8 L. ${n} × 3,8 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Volume", lo: 0, hi: 3, f: () => { const n = 10 * rnd(3, 40), ru = n / 3.8; return Q(`${n} L`, "USG", n / 3.785, `1 USG ≈ 3,8 L. ${n} ÷ 3,8 ≈ ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Volume", lo: 1, hi: 3, f: () => { const x = pick([.2, .35, .5, .8, 1.2, 2.5]); return Q(`${F(x)} m³`, "L", x * 1000, `1 m³ = 1000 L : ${F(x)} × 1000 = ${F(x * 1000)}.`, { exact: true }); } },
+      { c: "Volume", lo: 1, hi: 3, f: () => { const n = 2 * rnd(2, 20), ru = n * .95; return Q(`${n} quarts US`, "L", n * .9464, `1 quart ≈ 0,95 L (un peu moins qu'un litre). ${n} × 0,95 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Volume", lo: 2, hi: 4, f: () => { const n = 5 * rnd(2, 20), ru = n * 4.5; return Q(`${n} gallons impériaux`, "L", n * 4.546, `1 gallon impérial ≈ 4,5 L. ${n} × 4,5 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Volume", lo: 3, hi: 4, f: () => { const n = rnd(21, 95), ru = n * 3.8; return Q(`${n} USG`, "L", n * 3.785, `1 USG ≈ 3,8 L : n × 4 moins 5 %. ${n} × 4 = ${n * 4}, − ${F(r1(n * .2))} = ${F(r1(ru))}.`, { rule: ru }); } },
+      /* ----- Vitesse ----- */
+      { c: "Vitesse", lo: 0, hi: 3, f: () => { const n = 10 * rnd(5, 30), ru = n * 1.85; return Q(`${n} kt`, "km/h", n * 1.852, `1 kt ≈ 1,85 km/h (presque × 2, moins 7 %). ${n} × 1,85 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Vitesse", lo: 0, hi: 3, f: () => { const n = 10 * rnd(10, 60), ru = n / 1.85; return Q(`${n} km/h`, "kt", n / 1.852, `1 kt ≈ 1,85 km/h. ${n} ÷ 1,85 ≈ ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Vitesse", lo: 1, hi: 4, f: () => { const n = 5 * rnd(2, 24); return Q(`${n} m/s`, "km/h", n * 3.6, `× 3,6 : ${n} × 3,6 = ${F(r1(n * 3.6))}.`, { exact: true }); } },
+      { c: "Vitesse", lo: 1, hi: 4, f: () => { const n = 36 * rnd(1, 12), ru = n / 3.6; return Q(`${n} km/h`, "m/s", n / 3.6, `÷ 3,6 : ${n} ÷ 3,6 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Vitesse", lo: 2, hi: 4, f: () => { const n = 10 * rnd(3, 25), ru = n * 1.6; return Q(`${n} mph`, "km/h", n * 1.609, `1 mile par heure ≈ 1,6 km/h. ${n} × 1,6 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Vitesse", lo: 2, hi: 4, f: () => { const n = 10 * rnd(5, 30), ru = n * 1.15; return Q(`${n} kt`, "mph", n * 1.1508, `1 kt ≈ 1,15 mph : on ajoute 15 %. ${n} + ${F(r1(n * .15))} = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Vitesse", lo: 2, hi: 4, f: () => { const n = 100 * rnd(2, 30), ru = n / 200; return Q(`${F(n)} ft/min`, "m/s", n / 196.85, `1 m/s ≈ 200 ft/min. ${F(n)} ÷ 200 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Vitesse", lo: 3, hi: 4, f: () => { const n = rnd(2, 20), ru = n * 200; return Q(`${n} m/s`, "ft/min", n * 196.85, `1 m/s ≈ 200 ft/min. ${n} × 200 = ${F(ru)}.`, { rule: ru }); } },
+      { c: "Vitesse", lo: 3, hi: 4, f: () => { const m = pick([.6, .7, .75, .78, .8, .82, .85]), ru = m * 570; return Q(`Mach ${F(m)} en altitude`, "kt", m * 573, `En altitude, la vitesse du son ≈ 570 kt. ${F(m)} × 570 = ${F(Math.round(ru))}.`, { rule: ru }); } },
+      /* ----- Température (réponses toujours positives) ----- */
+      { c: "Température", lo: 0, hi: 1, f: () => { const c = rnd(0, 40); return Q(`${c} °C`, "K", c + 273.15, `On ajoute 273 : ${c} + 273 = ${c + 273}.`, { rule: c + 273, ta: 1 }); } },
+      { c: "Température", lo: 1, hi: 3, f: () => { const c = 5 * rnd(0, 24), f = c * 1.8 + 32; return Q(`${c} °C`, "°F", f, `× 1,8 puis + 32 : ${c} × 2 = ${c * 2}, moins 10 % (${F(c * .2)}) = ${F(c * 1.8)}, + 32 = ${F(f)}.`, { rule: f, ta: 1 }); } },
+      { c: "Température", lo: 1, hi: 3, f: () => { const c = 5 * rnd(0, 24), f = c * 1.8 + 32, ru = (f - 32) / 2 * 1.1; return Q(`${f} °F`, "°C", c, `On retire 32 : ${f} − 32 = ${f - 32}. Puis ÷ 1,8 : la moitié (${F((f - 32) / 2)}), plus 10 % = ${F(r1(ru))}.`, { rule: ru, ta: 1 }); } },
+      { c: "Température", lo: 2, hi: 4, f: () => { const h = 1000 * rnd(1, 7), isa = 15 - 2 * h / 1000; return Q(`Température ISA à ${F(h)} ft`, "°C", isa, `ISA : 15 °C au niveau de la mer, moins 2 °C par 1000 ft. 15 − 2 × ${h / 1000} = ${isa}.`, { exact: true }); } },
+      { c: "Température", lo: 3, hi: 4, f: () => { const h = 1000 * rnd(1, 8), isa = 15 - 2 * h / 1000, dev = rnd(2, 22), T = isa + dev; return Q(`${T} °C à ${F(h)} ft : écart avec l'ISA`, "°C", dev, `ISA à ${F(h)} ft = 15 − 2 × ${h / 1000} = ${isa} °C. Écart : ${T} − ${isa} = ${dev}.`, { exact: true }); } },
+      /* ----- Pression ----- */
+      { c: "Pression", lo: 1, hi: 3, f: () => { const n = rnd(985, 1040), ru = 29.92 + (n - 1013) * .0295; return Q(`${n} hPa`, "inHg", n * .02953, `Repère : 1013 hPa = 29,92 inHg, et 1 hPa ≈ 0,03 inHg. Écart ${n - 1013} hPa × 0,03 = ${F(r2((n - 1013) * .03))}, donc ≈ ${F(r2(ru))}.`, { rule: ru, t: .01, ta: .15, dp: 2 }); } },
+      { c: "Pression", lo: 1, hi: 3, f: () => { const n = rnd(2880, 3080) / 100, ru = 1013 + (n - 29.92) * 34; return Q(`${F(n)} inHg`, "hPa", n * 33.8639, `Repère : 29,92 inHg = 1013 hPa, et 0,1 inHg ≈ 3,4 hPa. Écart ${F(r2(n - 29.92))} inHg ≈ ${F(r1((n - 29.92) * 34))} hPa.`, { rule: ru, t: .006, ta: 3 }); } },
+      { c: "Pression", lo: 2, hi: 3, f: () => { const x = rnd(950, 1050) / 1000; return Q(`${F(x)} bar`, "hPa", x * 1000, `1 bar = 1000 hPa : ${F(x)} × 1000 = ${F(x * 1000)}.`, { exact: true }); } },
+      { c: "Pression", lo: 2, hi: 4, f: () => { const n = 5 * rnd(4, 16), ru = n / 14.5; return Q(`${n} psi`, "bar", n * .06895, `1 bar ≈ 14,5 psi. ${n} ÷ 14,5 ≈ ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Pression", lo: 3, hi: 4, f: () => { const q = rnd(993, 1033), d = Math.abs(1013 - q) || 7, qq = q === 1013 ? 1020 : q; return Q(`QNH ${qq} : écart d'altitude par rapport à 1013`, "ft", d * 30, `1 hPa ≈ 30 ft. Écart de pression : ${d} hPa × 30 = ${F(d * 30)}.`, { rule: d * 30 }); } },
+      { c: "Pression", lo: 3, hi: 4, f: () => { const a = 500 * rnd(2, 16), q = rnd(993, 1012), v = a + (1013 - q) * 30; return Q(`Altitude ${F(a)} ft, QNH ${q} : altitude pression`, "ft", v, `Altitude pression = altitude + 30 ft par hPa sous 1013. (1013 − ${q}) × 30 = ${(1013 - q) * 30}, donc ${F(a)} + ${(1013 - q) * 30} = ${F(v)}.`, { rule: v }); } },
+      /* ----- Temps ----- */
+      { c: "Temps", lo: 0, hi: 2, f: () => { const h = pick([1.5, 2.5, 3.5, .75, 1.25, 2.25, 4.5]); return Q(`${F(h)} h`, "min", h * 60, `${F(h)} × 60 = ${F(h * 60)}.`, { exact: true }); } },
+      { c: "Temps", lo: 0, hi: 2, f: () => { const m = 6 * rnd(5, 40); return Q(`${m} min`, "h", m / 60, `${m} ÷ 60 = ${F(r2(m / 60))}.`, { exact: true }); } },
+      { c: "Temps", lo: 1, hi: 3, f: () => { const h = rnd(1, 5), m = 5 * rnd(1, 11); return Q(`${h} h ${m}`, "min", h * 60 + m, `${h} × 60 = ${h * 60}, + ${m} = ${h * 60 + m}.`, { exact: true }); } },
+      { c: "Temps", lo: 1, hi: 4, f: () => { const h1 = rnd(6, 15), m1 = 5 * rnd(0, 11), d = 5 * rnd(6, 40), t2 = h1 * 60 + m1 + d, h2 = Math.floor(t2 / 60), m2 = t2 % 60; return Q(`Départ ${h1} h ${String(m1).padStart(2, "0")}, arrivée ${h2} h ${String(m2).padStart(2, "0")} : durée`, "min", d, `De ${h1} h ${String(m1).padStart(2, "0")} à ${h2} h 00 puis jusqu'à ${h2} h ${String(m2).padStart(2, "0")} : compte en heures rondes puis ajoute les minutes. Total ${d} min.`, { exact: true }); } },
+      { c: "Temps", lo: 2, hi: 3, f: () => { const m = rnd(1, 9), sc = rnd(5, 55); return Q(`${m} min ${sc} s`, "s", m * 60 + sc, `${m} × 60 = ${m * 60}, + ${sc} = ${m * 60 + sc}.`, { exact: true }); } },
+      { c: "Temps", lo: 2, hi: 4, f: () => { const v = pick([60, 90, 120, 150, 180]), m = rnd(2, 20) * 2; return Q(`${v} kt pendant ${m} min : distance`, "NM", v * m / 60, `${v} kt = ${F(v / 60)} NM par minute. ${F(v / 60)} × ${m} = ${F(r2(v * m / 60))}.`, { exact: true }); } },
+      { c: "Temps", lo: 2, hi: 4, f: () => { const v = pick([60, 90, 120, 150]), m = 6 * rnd(5, 40), d = v * m / 60; return Q(`${d} NM à ${v} kt : durée`, "min", m, `Temps = distance ÷ vitesse × 60 : ${d} ÷ ${v} × 60 = ${m} min.`, { exact: true }); } },
+      { c: "Temps", lo: 3, hi: 4, f: () => { const v = pick([60, 90, 120, 150]), m = 6 * rnd(5, 40), d = v * m / 60; return Q(`${d} NM en ${m} min : vitesse`, "kt", v, `Vitesse = distance ÷ temps × 60 : ${d} ÷ ${m} × 60 = ${v} kt.`, { exact: true }); } },
+      /* ----- Carburant ----- */
+      { c: "Carburant", lo: 1, hi: 3, f: () => { const c = pick([30, 36, 40, 45, 48, 55]), h = pick([1.5, 2, 2.5, 3, 3.5, 4.5]); return Q(`Conso ${c} L/h pendant ${F(h)} h : carburant`, "L", c * h, `${c} × ${F(h)} = ${F(c * h)}.`, { exact: true }); } },
+      { c: "Carburant", lo: 2, hi: 4, f: () => { const c = pick([30, 36, 42, 48, 54, 60]), m = 10 * rnd(6, 24), f = c * m / 60; return Q(`${f} L à ${c} L/h : autonomie`, "min", m, `${f} ÷ ${c} = ${F(r1(f / c))} h, × 60 = ${m} min.`, { exact: true }); } },
+      { c: "Carburant", lo: 2, hi: 4, f: () => { const n = 5 * rnd(8, 40), ru = n * 2.7; return Q(`${n} USG d'avgas`, "kg", n * 2.725, `1 USG ≈ 3,8 L et 1 L d'avgas ≈ 0,72 kg, donc 1 USG ≈ 2,7 kg. ${n} × 2,7 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Carburant", lo: 2, hi: 4, f: () => { const n = 10 * rnd(5, 40), ru = n * .72; return Q(`${n} L d'avgas`, "kg", n * .72, `1 L d'avgas ≈ 0,72 kg. ${n} × 0,72 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Carburant", lo: 2, hi: 4, f: () => { const n = 10 * rnd(5, 30), ru = n * 1.4; return Q(`${n} kg d'avgas`, "L", n / .72, `Densité 0,72 : on divise par 0,72, donc on multiplie par 1,4. ${n} × 1,4 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Carburant", lo: 2, hi: 4, f: () => { const n = rnd(8, 40), ru = n * 3.8; return Q(`${n} USG/h`, "L/h", n * 3.785, `1 USG ≈ 3,8 L. ${n} × 3,8 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Carburant", lo: 2, hi: 4, f: () => { const cap = pick([80, 100, 120, 200]), p = 5 * rnd(2, 19); return Q(`${p} % d'un réservoir de ${cap} L`, "L", cap * p / 100, `${cap} ÷ 100 = ${F(cap / 100)}, puis × ${p} = ${F(cap * p / 100)}.`, { exact: true }); } },
+      { c: "Carburant", lo: 3, hi: 4, f: () => { const n = 100 * rnd(5, 50), ru = n * .8; return Q(`${F(n)} L de Jet A1`, "kg", n * .8, `Densité du Jet A1 ≈ 0,8. ${F(n)} × 0,8 = ${F(ru)}.`, { rule: ru }); } },
+      { c: "Carburant", lo: 3, hi: 4, f: () => { const n = 100 * rnd(2, 12), ru = n * 2.2; return Q(`${n} kg/h`, "lb/h", n * 2.2046, `× 2,2 : on double puis on ajoute 10 %. ${n} × 2,2 = ${F(ru)}.`, { rule: ru }); } },
+      { c: "Carburant", lo: 3, hi: 4, f: () => { const n = 10 * rnd(8, 40), ru = n * 6; return Q(`${n} USG d'avgas`, "lb", n * 6.01, `Pour l'avgas, 1 USG ≈ 6 lb. ${n} × 6 = ${F(ru)}.`, { rule: ru }); } },
+      { c: "Carburant", lo: 4, hi: 4, f: () => { const u = rnd(40, 120), c = pick([24, 28, 32, 36, 40]), ru = u * 3.8 / c * 60; return Q(`${u} USG à ${c} L/h : autonomie`, "min", u * 3.785 / c * 60, `${u} USG × 3,8 = ${F(r1(u * 3.8))} L. ${F(r1(u * 3.8))} ÷ ${c} = ${F(r1(u * 3.8 / c))} h, × 60 = ${F(Math.round(ru))} min.`, { rule: ru }); } },
+      { c: "Carburant", lo: 4, hi: 4, f: () => { const d = 10 * rnd(15, 60), gs = pick([90, 100, 110, 120, 135, 150]), c = pick([8, 9, 10, 12, 14, 16]), ru = d / gs * c; return Q(`${d} NM à ${gs} kt, conso ${c} USG/h : carburant`, "USG", ru, `Durée = ${d} ÷ ${gs} = ${F(r2(d / gs))} h. Carburant = ${F(r2(d / gs))} × ${c} = ${F(r1(ru))} USG.`, { rule: ru }); } },
+      /* ----- Masse et centrage ----- */
+      { c: "Masse et centrage", lo: 3, hi: 4, f: () => { const m = 5 * (l >= 4 ? rnd(15, 60) : rnd(8, 40)), b = (l >= 4 ? rnd(11, 48) : rnd(5, 35)) / 10; return Q(`${m} kg à ${F(b)} m du repère : moment`, "kg·m", m * b, `Moment = masse × bras : ${m} × ${F(b)} = ${F(r2(m * b))}.`, { exact: true }); } },
+      { c: "Masse et centrage", lo: 3, hi: 4, f: () => { const m = pick([50, 60, 75, 80, 90, 100, 120]), b = rnd(8, 40) / 10; return Q(`Moment ${F(r2(m * b))} kg·m pour ${m} kg : bras de levier`, "m", b, `Bras = moment ÷ masse : ${F(r2(m * b))} ÷ ${m} = ${F(b)}.`, { exact: true }); } },
+      { c: "Masse et centrage", lo: 4, hi: 4, f: () => { const m1 = 10 * rnd(5, 12), m2 = 10 * rnd(5, 12), b1 = rnd(8, 20) / 10, b2 = rnd(21, 40) / 10, M = m1 * b1 + m2 * b2, av = M / (m1 + m2); return Q(`${m1} kg à ${F(b1)} m et ${m2} kg à ${F(b2)} m : bras moyen`, "m", av, `Moments : ${m1} × ${F(b1)} = ${F(r1(m1 * b1))} et ${m2} × ${F(b2)} = ${F(r1(m2 * b2))}, total ${F(r1(M))}. Masse totale ${m1 + m2}. Bras moyen = ${F(r1(M))} ÷ ${m1 + m2} = ${F(r2(av))}.`, { rule: av }); } },
+      /* ----- Puissance et électricité ----- */
+      { c: "Puissance", lo: 1, hi: 3, f: () => { const U = pick([12, 14, 24, 28]), I = rnd(2, 30); return Q(`${U} V, ${I} A : puissance`, "W", U * I, `P = U × I : ${U} × ${I} = ${U * I}.`, { exact: true }); } },
+      { c: "Puissance", lo: 2, hi: 4, f: () => { const n = 10 * rnd(8, 40), ru = n * .75; return Q(`${n} ch (hp)`, "kW", n * .7457, `1 ch ≈ 0,75 kW : les trois quarts. ${n} × 0,75 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Puissance", lo: 2, hi: 4, f: () => { const n = 10 * rnd(5, 30), ru = n * 1.34; return Q(`${n} kW`, "ch (hp)", n * 1.341, `1 kW ≈ 1,34 ch : on ajoute un tiers. ${n} + ${F(r1(n / 3))} = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Puissance", lo: 3, hi: 4, f: () => { const Ah = 5 * rnd(4, 16), I = pick([4, 5, 8, 10, 12, 15, 20]), v = Ah / I * 60; return Q(`Batterie ${Ah} Ah, conso ${I} A : autonomie`, "min", v, `${Ah} ÷ ${I} = ${F(r2(Ah / I))} h, × 60 = ${F(Math.round(v))} min.`, { rule: v }); } },
+      /* ----- Navigation ----- */
+      { c: "Navigation", lo: 1, hi: 4, f: () => { const c = 10 * rnd(1, 35), cc = c === 180 ? 190 : c, a = (cc + 180) % 360; return Q(`Cap ${cc}° : cap inverse`, "°", a, `Cap inverse : ${cc} ${cc > 180 ? MINUS : "+"} 180 = ${a}.`, { exact: true }); } },
+      { c: "Navigation", lo: 1, hi: 3, f: () => { const n = 5 * rnd(2, 70); return Q(`${F(n * 100)} ft`, "FL", n, `Un niveau de vol = l'altitude en centaines de pieds : ${F(n * 100)} ÷ 100 = ${n}.`, { exact: true }); } },
+      { c: "Navigation", lo: 1, hi: 3, f: () => { const n = 5 * rnd(3, 40); return Q(`FL ${n}`, "ft", n * 100, `FL ${n} = ${n} × 100 = ${F(n * 100)} ft.`, { exact: true }); } },
+      { c: "Navigation", lo: 2, hi: 4, f: () => { const a = 3 * rnd(10, 120); return Q(`Virage de ${a}° au taux 1 (3 °/s)`, "s", a / 3, `Au taux 1, on tourne de 3° par seconde : ${a} ÷ 3 = ${a / 3}.`, { exact: true }); } },
+      { c: "Navigation", lo: 3, hi: 4, f: () => { const d = 10 * rnd(2, 12), a = rnd(2, 8), ru = a * d / 60; return Q(`Écart de ${a}° à ${d} NM : décalage latéral`, "NM", d * a / 57.3, `Règle du 1 sur 60 : ${a}° à 60 NM décalent de ${a} NM. À ${d} NM : ${a} × ${d} ÷ 60 = ${F(r1(ru))}.`, { rule: ru, ta: .15 }); } },
+      { c: "Navigation", lo: 3, hi: 4, f: () => { const w = 5 * rnd(3, 10), a = pick([30, 45, 60]), k = { 30: .5, 45: .7, 60: .9 }[a], ru = w * k; return Q(`Vent ${w} kt à ${a}° de la piste : composante de travers`, "kt", w * Math.sin(a * Math.PI / 180), `Règle de l'horloge : 30° = ½, 45° = 0,7, 60° ≈ 0,9. ${w} × ${k} = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Navigation", lo: 3, hi: 4, f: () => { const w = 5 * rnd(2, 8), v = pick([90, 100, 120, 150, 180, 240]), ru = 60 * w / v; return Q(`Vent de travers ${w} kt, vitesse propre ${v} kt : dérive`, "°", ru, `Règle du 1 sur 60 : dérive ≈ 60 × vent ÷ vitesse = 60 × ${w} ÷ ${v} = ${F(r1(ru))}.`, { rule: ru, ta: .5 }); } },
+      { c: "Navigation", lo: 3, hi: 4, f: () => { const a = 1000 * rnd(10, 40), b = 1000 * rnd(1, 6), ru = (a - b) / 1000 * 3; return Q(`Descente de ${F(a)} ft à ${F(b)} ft : distance nécessaire`, "NM", ru, `Règle des 3 : 3 NM par 1000 ft à perdre. (${F(a)} − ${F(b)}) ÷ 1000 = ${(a - b) / 1000}, × 3 = ${F(ru)}.`, { rule: ru }); } },
+      { c: "Navigation", lo: 3, hi: 4, f: () => { const v = 10 * rnd(8, 20), ru = v / 10 + 7; return Q(`Virage standard à ${v} kt : inclinaison`, "°", ru, `Inclinaison pour le taux 1 ≈ vitesse ÷ 10 + 7 : ${v} ÷ 10 + 7 = ${F(ru)}.`, { rule: ru }); } },
+      { c: "Navigation", lo: 3, hi: 4, f: () => { const g = 10 * rnd(8, 16); return Q(`Pente 3° à ${g} kt de vitesse sol : taux de descente`, "ft/min", g * 5.3, `Règle : taux de descente (ft/min) ≈ 5 × vitesse sol pour 3°. ${g} × 5 = ${g * 5}.`, { rule: g * 5, t: .07 }); } },
+      { c: "Navigation", lo: 3, hi: 4, f: () => { const p = pick([3, 5, 6, 8, 10]), d = Math.atan(p / 100) * 180 / Math.PI, ru = p * .57; return Q(`Pente de ${p} %`, "°", d, `1 % ≈ 0,57°. ${p} × 0,57 = ${F(r1(ru))}.`, { rule: ru }); } },
+      { c: "Navigation", lo: 4, hi: 4, f: () => { const v = pick([100, 110, 120, 140, 150]), w = 5 * rnd(1, 6), d = 10 * rnd(5, 20), ru = d / (v - w) * 60; return Q(`TAS ${v} kt, vent de face ${w} kt, ${d} NM : durée`, "min", ru, `Vitesse sol = ${v} − ${w} = ${v - w} kt. Durée = ${d} ÷ ${v - w} × 60 = ${F(Math.round(ru))} min.`, { rule: ru }); } }
     ];
-    const T1 = [
-      () => { const n = 100 * rnd(2, 50); return Q(`${fmt(n)} ft`, "m", n * .3048, `1 ft ≈ 0,3 m. ${fmt(n)} × 0,3 = ${fmt(n * .3)}.`, { t: .03 }); },
-      () => { const n = 100 * rnd(2, 40); return Q(`${fmt(n)} m`, "ft", n * 3.2808, `1 m ≈ 3,3 ft. ${fmt(n)} × 3,3 = ${fmt(n * 3.3)}.`, { t: .03 }); },
-      () => { const n = 10 * rnd(5, 30); return Q(`${n} kt`, "km/h", n * 1.852, `1 kt ≈ 1,85 km/h : presque × 2, moins 7 %. ${n} × 1,85 = ${fmt(r1(n * 1.85))}.`); },
-      () => { const n = 10 * rnd(10, 50); return Q(`${n} km/h`, "kt", n / 1.852, `1 kt ≈ 1,85 km/h. ${n} ÷ 1,85 ≈ ${fmt(r1(n / 1.85))}.`); },
-      () => { const c = 5 * rnd(-6, 24), f = c * 9 / 5 + 32; return Q(`${c} °C`, "°F", f, `× 1,8 puis + 32 : ${c} × 1,8 = ${fmt(c * 1.8)}, + 32 = ${f}.`, { exact: true }); },
-      () => { const c = 5 * rnd(-6, 24), f = c * 9 / 5 + 32; return Q(`${f} °F`, "°C", c, `On retire 32 puis on divise par 1,8 : ${f} ${MINUS} 32 = ${f - 32}, ÷ 1,8 = ${c}.`, { exact: true }); },
-      () => { const n = pick([100, 200, 250, 300, 400, 500]); return Q(`${n} m/s`, "km/h", n * 3.6, `× 3,6 : ${n} × 3,6 = ${fmt(n * 3.6)}.`, { exact: true }); }
-    ];
-    const T2 = [
-      () => { const n = 5 * rnd(8, 40); return Q(`${n} USG d'avgas`, "kg", n * 2.725, `1 USG ≈ 3,8 L et 1 L d'avgas ≈ 0,72 kg, donc 1 USG ≈ 2,7 kg. ${n} × 2,7 = ${fmt(r1(n * 2.7))}.`); },
-      () => { const n = 10 * rnd(5, 40); return Q(`${n} L d'avgas`, "kg", n * .72, `1 L d'avgas ≈ 0,72 kg. ${n} × 0,72 = ${fmt(r1(n * .72))}.`); },
-      () => { const n = 10 * rnd(5, 30); return Q(`${n} kg d'avgas`, "L", n / .72, `Densité 0,72 : on divise par 0,72, donc on multiplie par 1,4. ${n} × 1,4 = ${fmt(n * 1.4)}.`); },
-      () => { const c = pick([30, 36, 40, 45, 48, 55]), h = pick([1.5, 2, 2.5, 3, 3.5, 4.5]); return Q(`Conso ${c} L/h pendant ${fmt(h)} h : carburant`, "L", c * h, `${c} × ${fmt(h)} = ${fmt(c * h)}.`, { exact: true }); },
-      () => { const c = pick([30, 36, 42, 48, 54, 60]), m = 10 * rnd(6, 24), f = c * m / 60; return Q(`${f} L à ${c} L/h : autonomie`, "min", m, `${f} ÷ ${c} = ${fmt(r1(f / c))} h, × 60 = ${m} min.`, { exact: true }); },
-      () => { const v = pick([60, 90, 120, 150]), m = 6 * rnd(5, 40), d = v * m / 60; return Q(`${d} NM à ${v} kt : durée`, "min", m, `Temps = distance ÷ vitesse × 60 : ${d} ÷ ${v} × 60 = ${m} min.`, { exact: true }); },
-      () => { const v = pick([60, 90, 120, 150]), m = 6 * rnd(5, 40), d = v * m / 60; return Q(`${d} NM en ${m} min : vitesse`, "kt", v, `Vitesse = distance ÷ temps × 60 : ${d} ÷ ${m} × 60 = ${v} kt.`, { exact: true }); }
-    ];
-    const T3 = [
-      () => { const n = rnd(975, 1040); return Q(`${n} hPa`, "inHg", n * .02953, `1 inHg ≈ 33,86 hPa. ${n} ÷ 33,86 ≈ ${fmt(r1(n * .02953))}. Repère : 1013 hPa = 29,92 inHg.`, { t: .004, ta: .1 }); },
-      () => { const p = rnd(29, 30) + rnd(0, 9) / 10, n = Math.round(p * 10) / 10; return Q(`${fmt(n)} inHg`, "hPa", n * 33.8639, `On repart de 29,92 inHg = 1013 hPa, et 0,1 inHg ≈ 3,4 hPa. Écart de ${fmt(r1(n - 29.92))} inHg ≈ ${fmt(r1((n - 29.92) * 33.86))} hPa.`, { t: .004, ta: 4 }); },
-      () => { const n = 5 * rnd(3, 40); return Q(`FL ${n}`, "ft", n * 100, `Un niveau de vol est l'altitude en centaines de pieds : ${n} × 100 = ${fmt(n * 100)}.`, { exact: true }); },
-      () => { const n = 100 * rnd(2, 15); return Q(`${fmt(n)} ft/min`, "m/s", n / 196.85, `1 m/s ≈ 197 ft/min (environ 200). ${fmt(n)} ÷ 200 ≈ ${fmt(r1(n / 200))}.`, { t: .04 }); },
-      () => { const g = 10 * rnd(8, 16); return Q(`Pente 3° à ${g} kt de vitesse sol : taux de descente`, "ft/min", g * 5.3, `Règle : taux de descente (ft/min) ≈ 5 × vitesse sol pour 3°. ${g} × 5 = ${g * 5}.`, { t: .06 }); },
-      () => { const d = 10 * rnd(2, 12), a = rnd(2, 8); return Q(`Écart de ${a}° à ${d} NM : décalage latéral`, "NM", d * a / 57.3, `Règle du 1 sur 60 : ${a}° à 60 NM décalent de ${a} NM. À ${d} NM : ${a} × ${d} ÷ 60 = ${fmt(r1(a * d / 60))}.`, { t: .05, ta: .15 }); },
-      () => { const n = 10 * rnd(8, 40); return Q(`${n} USG`, "lb", n * 6.01, `Pour l'avgas, 1 USG ≈ 6 lb. ${n} × 6 = ${fmt(n * 6)}.`); }
-    ];
-    const T4 = [
-      () => { const u = rnd(40, 120), c = pick([24, 28, 32, 36, 40]); return Q(`${u} USG à ${c} L/h : autonomie`, "min", u * 3.785 / c * 60, `${u} USG × 3,8 = ${fmt(r1(u * 3.8))} L. ${fmt(r1(u * 3.8))} ÷ ${c} = ${fmt(r1(u * 3.8 / c))} h, × 60 = ${fmt(Math.round(u * 3.8 / c * 60))} min.`, { t: .03 }); },
-      () => { const d = 10 * rnd(20, 60), v = pick([90, 100, 110, 120, 135, 150]); return Q(`${d} km à ${v} kt : durée`, "min", d / 1.852 / v * 60, `${d} km ÷ 1,85 ≈ ${fmt(r1(d / 1.85))} NM. ${fmt(r1(d / 1.85))} ÷ ${v} × 60 = ${fmt(Math.round(d / 1.85 / v * 60))} min.`, { t: .03 }); },
-      () => { const w = 5 * rnd(3, 10), a = pick([30, 45, 60]), k = { 30: .5, 45: .7, 60: .9 }[a]; return Q(`Vent ${w} kt à ${a}° de la piste : composante de travers`, "kt", w * Math.sin(a * Math.PI / 180), `Règle de l'horloge : 30° = ½, 45° = ¾ (0,7), 60° = presque 1 (0,9). ${w} × ${k} = ${fmt(r1(w * k))}.`, { t: .05 }); },
-      () => { const n = 10 * rnd(30, 120); return Q(`${n} km/h`, "m/s", n / 3.6, `÷ 3,6 : ${n} ÷ 3,6 = ${fmt(r1(n / 3.6))}.`, { t: .03 }); },
-      () => { const l = 10 * rnd(20, 90); return Q(`${l} L d'avgas`, "lb", l * .72 * 2.2046, `${l} × 0,72 = ${fmt(r1(l * .72))} kg, × 2,2 = ${fmt(r1(l * .72 * 2.2))} lb.`, { t: .03 }); },
-      () => { const n = 100 * rnd(10, 60); return Q(`${fmt(n)} ft`, "m", n * .3048, `${fmt(n)} × 0,3 = ${fmt(n * .3)}, puis on ajoute 1,6 % : ${fmt(r1(n * .3048))}.`, { t: .015 }); },
-      () => { const g = 10 * rnd(9, 16), a = pick([2.5, 3, 3.5, 4]); return Q(`Pente ${fmt(a)}° à ${g} kt : taux de descente`, "ft/min", g * a * 1.77, `Règle : taux ≈ 5 × vitesse sol × (pente ÷ 3). ${g} × 5 × ${fmt(r1(a / 3))} ≈ ${fmt(Math.round(g * 5 * a / 3))}.`, { t: .06 }); }
-    ];
-    return pick([T0, T1, T2, T3, T4][l])();
+    const pool = ITEMS.filter((x) => x.lo <= l && l <= x.hi);
+    const cats = [...new Set(pool.map((x) => x.c))], cat = pick(cats);
+    return pick(pool.filter((x) => x.c === cat)).f();
   },
   eq(l) {
     const { L, R, V } = eqCore(l);
@@ -974,7 +1030,7 @@ const OPS = [
   { id: "pct", label: "Pourcentages", sym: "%" },
   { id: "dec", label: "Décimaux", sym: "," },
   { id: "sq", label: "Carrés", sym: "x²" },
-  { id: "conv", label: "Conversions aviation", sym: "ft" }
+  { id: "conv", label: "Grandeurs aviation", sym: "ft" }
 ];
 const OP_BY_ID = Object.fromEntries(OPS.map((o) => [o.id, o]));
 
@@ -1576,7 +1632,7 @@ function submitPick() {
 function submit() {
   const v = parseInput(G.input);
   if (Number.isNaN(v)) { $("answer").classList.add("shake"); setTimeout(() => $("answer").classList.remove("shake"), 260); return; }
-  const ok = Math.abs(v - G.q.ans) <= (G.q.tol || 0) + 1e-9;
+  const ok = Math.abs(v - (G.q.center !== undefined ? G.q.center : G.q.ans)) <= (G.q.tol || 0) + 1e-9;
   G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, why: G.q.why, ms: performance.now() - G.q.t0 }); bump(G.q.op, ok);
   if (ok) {
     G.correct++;
