@@ -97,6 +97,7 @@ body.turb-on .game, .turb { animation: turb .55s ease-in-out; }
 @keyframes wobble { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
 @keyframes slam { 0% { opacity: 0; transform: scale(3.2) rotate(12deg); } 70% { opacity: 1; transform: scale(.92) rotate(12deg); } 100% { opacity: 1; transform: scale(1) rotate(12deg); } }
 @keyframes turb { 0%, 100% { transform: none; } 10% { transform: translate(-5px, 3px) rotate(-.4deg); } 25% { transform: translate(5px, -3px) rotate(.4deg); } 40% { transform: translate(-4px, 2px); } 60% { transform: translate(4px, -2px); } 80% { transform: translate(-2px, 1px); } }
+.upd { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 60; border: 0; border-radius: 12px; background: var(--fg); color: var(--bg); padding: 12px 14px; font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
 body.gated #home, body.gated #game, body.gated #results, body.gated #oops { display: none !important; }
 .gate-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
 .gate-card h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
@@ -236,6 +237,8 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
 </style>
 </head>
 <body>
+
+<button id="updBanner" class="upd" type="button" hidden>Nouvelle version prête : touche ici ou reviens à l'accueil pour l'installer</button>
 
 <!-- INSTALLATION : l'appli ne s'ouvre que depuis l'écran d'accueil -->
 <main id="gate" class="screen" hidden>
@@ -1452,6 +1455,7 @@ function show(id) {
   ["home", "game", "results"].forEach((x) => { $(x).hidden = x !== id; });
   document.body.classList.toggle("playing", id === "game");
   window.scrollTo(0, 0);
+  if (id === "home" && typeof updatePending !== "undefined" && updatePending) setTimeout(applyUpdateIfSafe, 50);
 }
 const PSY0_OPS = ["intrus"];
 function startGame(kind) {
@@ -1758,6 +1762,36 @@ function applyGate() {
 window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; if (!isInstalled()) renderGate(); });
 window.addEventListener("appinstalled", () => { justInstalled = true; deferredInstall = null; if (!isInstalled()) renderGate(); });
 try { const mq = window.matchMedia("(display-mode: standalone)"); (mq.addEventListener ? mq.addEventListener.bind(mq, "change") : mq.addListener.bind(mq))(() => applyGate()); } catch (e) {}
+
+/* ---------- Mise à jour automatique : vérification chaque minute ---------- */
+const UPDATE_MS = 60000;
+let baseHash = null, updatePending = false;
+const hashStr = (t) => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return h + ":" + t.length; };
+async function fetchHash() {
+  const urls = ["index.html", "sw.js", "manifest.webmanifest"];
+  const txt = await Promise.all(urls.map(async (u) => { const r = await fetch(u + "?v=" + Date.now(), { cache: "no-store" }); if (!r.ok) throw new Error(u); return r.text(); }));
+  return hashStr(txt.join("\u0001"));
+}
+function applyUpdateIfSafe() {
+  if (!updatePending) return;
+  if (G || (!$("results").hidden)) { $("updBanner").hidden = false; return; }
+  if (document.activeElement && document.activeElement.tagName === "INPUT") return;   // pas pendant la saisie d'un pseudo ou d'un temps   // jamais en pleine séance ni pendant la lecture des résultats
+  location.reload();
+}
+async function checkUpdate() {
+  if (!navigator.onLine || !/^https?:$/.test(location.protocol)) return;
+  try {
+    if (baseHash === null) { baseHash = await fetchHash(); return; }
+    try { const reg = await navigator.serviceWorker.getRegistration(); if (reg) reg.update(); } catch (e) {}
+    const h = await fetchHash();
+    if (h !== baseHash) { updatePending = true; applyUpdateIfSafe(); }
+  } catch (e) { /* pas de réseau : on réessaiera à la prochaine minute */ }
+}
+setInterval(checkUpdate, UPDATE_MS);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
+window.addEventListener("online", checkUpdate);
+checkUpdate();
+document.addEventListener("click", (e) => { if (e.target.closest && e.target.closest("#updBanner")) location.reload(); });
 
 /* ---------- Hors ligne ---------- */
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
