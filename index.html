@@ -1342,16 +1342,23 @@ async function shareResult(text, btn) {
   try { await navigator.clipboard.writeText(text); const o = btn.textContent; btn.textContent = "Copié !"; setTimeout(() => { btn.textContent = o; }, 1600); }
   catch (e) { prompt("Copie ton résultat :", text); }
 }
+function untilMidnight() {
+  const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1), mins = Math.max(1, Math.ceil((m - n) / 60000));
+  return mins >= 60 ? `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")}` : `${mins} min`;
+}
 function renderDaily() {
   const day = dateKey(), d = store.get("daily", {}), t = d[day], st = currentStreak(), last = store.get("streak", {}).last;
   $("streakBadge").textContent = st ? `Série : ${st} jour${st > 1 ? "s" : ""}` : "";
-  $("dailyBtn").hidden = !!t; $("dailyShare").hidden = !t;
+  $("dailyBtn").hidden = false; $("dailyBtn").disabled = !!t;
+  $("dailyBtn").textContent = t ? "Défi du jour terminé · à demain" : "Lancer le défi (10 min)";
+  $("dailyShare").hidden = !t;
   $("dailyDesc").textContent = t
-    ? `Fait aujourd'hui : ${t.correct} justes sur ${t.total}. Envoie ton score à tes amis, et reviens demain pour garder ta série.`
-    : `10 minutes, les mêmes calculs pour tout le monde aujourd'hui, de plus en plus durs.` + (st && last === yesterdayKey() ? " Joue aujourd'hui pour garder ta série." : " Compare ton score avec tes amis.");
+    ? `Fait aujourd'hui : ${t.correct} justes sur ${t.total}${t.partial ? " (défi interrompu, score enregistré tel quel)" : ""}. Un seul essai par jour : prochain défi dans ${untilMidnight()}. Envoie ton score à tes amis !`
+    : `10 minutes, les mêmes calculs pour tout le monde aujourd'hui, de plus en plus durs. Un seul essai par jour.` + (st && last === yesterdayKey() ? " Joue aujourd'hui pour garder ta série." : " Compare ton score avec tes amis.");
   const keys = Object.keys(d).sort().reverse().slice(0, 5);
   $("dailyHist").innerHTML = keys.map((k) => `<li><span>${fmtDay(k)}</span><span class="num">${d[k].correct} justes sur ${d[k].total}</span></li>`).join("");
 }
+setInterval(() => { if (!document.hidden && !$("home").hidden && !document.body.classList.contains("gated")) renderDaily(); }, 30000);
 $("dailyBtn").onclick = () => startGame(true);
 $("dailyShare").onclick = () => { const day = dateKey(), e = store.get("daily", {})[day]; if (e) shareResult(shareTextFor(day, e), $("dailyShare")); };
 $("shareBtn").onclick = () => shareResult($("shareText").textContent, $("shareBtn"));
@@ -1396,7 +1403,7 @@ async function pushDuel(day, e) {
 }
 const PRESENCE_DAY = "0000-00-00";   // document « je suis dans ce duel » : visible par l'autre joueur avant son premier défi
 function announceMe() { if (duel && !duelDocs.some((r) => r.day === PRESENCE_DAY && r.pid === duel.pid)) pushDuel(PRESENCE_DAY, { correct: 0, total: 0, ms: 0 }); }
-function syncMine() { const d = store.get("daily", {}); Object.keys(d).forEach((day) => { if (!duelDocs.some((r) => r.day === day && r.pid === duel.pid)) pushDuel(day, d[day]); }); }
+function syncMine() { const d = store.get("daily", {}); Object.keys(d).forEach((day) => { if (G && G.daily && day === G.day) return; if (!duelDocs.some((r) => r.day === day && r.pid === duel.pid)) pushDuel(day, d[day]); }); }
 function joinDuel(room, name) {
   name = (name || "").trim().slice(0, 20); if (!name) return false;
   const pid = store.get("pid", null) || newId(10); store.set("pid", pid);
@@ -1548,14 +1555,25 @@ function show(id) {
   if (id === "home" && typeof updatePending !== "undefined" && updatePending) setTimeout(applyUpdateIfSafe, 50);
 }
 const PSY0_OPS = ["intrus"];
+function saveDailyProgress() {
+  if (!G || !G.daily) return;
+  const d = store.get("daily", {});
+  d[G.day] = { correct: G.items.filter((x) => x.ok).length, total: G.items.length, ms: Math.round(performance.now() - G.start), partial: true };
+  store.set("daily", d);
+}
+function finalizeDaily(g, correct, total, ms) {
+  const d = store.get("daily", {}); d[g.day] = { correct, total, ms: Math.round(ms) };
+  store.set("daily", d); updateStreak(g.day); pushDuel(g.day, d[g.day]); return d[g.day];
+}
 function startGame(kind) {
   if (document.body.classList.contains("gated")) return;
   const daily = kind === true, psy0 = kind === "psy0";
   if (daily ? store.get("daily", {})[dateKey()] : !psy0 && !settings.ops.length) return;
   sfx.init();
+  if (daily) { const d = store.get("daily", {}), day0 = dateKey(); d[day0] = { correct: 0, total: 0, ms: 0, partial: true }; store.set("daily", d); updateStreak(day0); }
   const base = { items: [], correct: 0, start: performance.now(), input: "", q: null, waiting: false, last: "", daily: false, psy0: false, weak: false, rng: null };
   G = daily
-    ? Object.assign(base, { daily: true, ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, rng: mulberry32(seedOf("calcul-mental|" + dateKey())) })
+    ? Object.assign(base, { daily: true, day: dateKey(), ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, rng: mulberry32(seedOf("calcul-mental|" + dateKey())) })
     : psy0
       ? Object.assign(base, { psy0: true, ops: [...PSY0_OPS], level: 1, timer: settings.timer || 600, count: 0 })
       : Object.assign(base, { ops: [...settings.ops], level: settings.level, timer: settings.timer, count: settings.timer ? 0 : settings.count, weak: !!settings.weak });
@@ -1650,7 +1668,7 @@ function submitPick() {
   const chosen = [...G.sel].sort((a, b) => a - b);
   if (!chosen.length && !G.none) { $("question").classList.add("shake"); setTimeout(() => $("question").classList.remove("shake"), 260); return; }
   const q = G.q, ok = chosen.join() === q.ans.join();
-  G.items.push({ pick: true, items: q.items, ans: q.ans, chosen, op: q.op, ok, why: q.why, ms: performance.now() - q.t0 }); bump(q.op, ok);
+  G.items.push({ pick: true, items: q.items, ans: q.ans, chosen, op: q.op, ok, why: q.why, ms: performance.now() - q.t0 }); bump(q.op, ok); saveDailyProgress();
   $("question").querySelectorAll("button.pick[data-i]").forEach((b, i) => {
     b.classList.add("reveal"); b.disabled = true;
     if (q.items[i].bad) b.classList.add("isfalse"); else if (G.sel.has(i)) b.classList.add("wrong");
@@ -1667,7 +1685,7 @@ function submit() {
   const v = parseInput(G.input);
   if (Number.isNaN(v)) { $("answer").classList.add("shake"); setTimeout(() => $("answer").classList.remove("shake"), 260); return; }
   const ok = Math.abs(v - (G.q.center !== undefined ? G.q.center : G.q.ans)) <= (G.q.tol || 0) + 1e-9;
-  G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, why: G.q.why, ms: performance.now() - G.q.t0 }); bump(G.q.op, ok);
+  G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, why: G.q.why, ms: performance.now() - G.q.t0 }); bump(G.q.op, ok); saveDailyProgress();
   if (ok) {
     G.correct++;
     sfx.ok();
@@ -1693,7 +1711,7 @@ function endGame() {
   hideOops();
   const g = G; G = null;
   const total = g.items.length;
-  if (!total) { show("home"); renderHome(); return; }
+  if (!total) { if (g.daily) finalizeDaily(g, 0, 0, Math.min(performance.now() - g.start, g.timer * 1000)); show("home"); renderHome(); return; }
   const ms = g.timer ? Math.min(performance.now() - g.start, g.timer * 1000) : performance.now() - g.start;
   const session = { date: Date.now(), level: g.level, ops: g.ops, correct: g.correct, total, ms, timer: g.timer, count: g.count, daily: !!g.daily, psy0: !!g.psy0 };
   const complete = !g.daily && (g.timer ? ms >= g.timer * 1000 - 300 : g.count && total >= g.count);
@@ -1711,14 +1729,13 @@ function endGame() {
   $("shareCard").hidden = !g.daily;
   $("again").textContent = g.daily ? "S'entraîner librement" : "Rejouer";
   if (g.daily) {
-    const day = dateKey(), d = store.get("daily", {});
-    if (!d[day]) { d[day] = { correct: g.correct, total, ms }; store.set("daily", d); updateStreak(day); pushDuel(day, d[day]); }
+    const day = g.day, rec = finalizeDaily(g, g.correct, total, ms);
     const sk = currentStreak();
     $("shareStreak").textContent = sk > 1 ? `Série en cours : ${sk} jours de suite.` : "Premier défi de ta série. Reviens demain !";
-    $("shareText").textContent = shareTextFor(day, d[day]);
+    $("shareText").textContent = shareTextFor(day, rec);
   }
   sfx.end();
-  $("resLabel").textContent = g.daily ? `Défi du jour · ${fmtDay(dateKey())}` : g.psy0 ? `Séance PSY0 · ${fmtTime(g.timer * 1000)}` : `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
+  $("resLabel").textContent = g.daily ? `Défi du jour · ${fmtDay(g.day)}` : g.psy0 ? `Séance PSY0 · ${fmtTime(g.timer * 1000)}` : `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
   $("resScore").innerHTML = g.timer ? `${g.correct}<small> justes</small>` : `${g.correct}<small>/${total}</small>`;
   $("resMsg").textContent = acc === 100 ? "Sans faute, bravo !" : acc >= 80 ? "Très bien, continue comme ça !" : acc >= 50 ? "Pas mal, regarde les corrections ci-dessous." : "Courage, chaque séance compte.";
   $("resRec").hidden = !newRec;
