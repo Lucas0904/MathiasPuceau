@@ -79,27 +79,16 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; line-h
 .seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.15); color: var(--accent); font-weight: 700; }
 .sub { margin: 12px 0 6px; font-size: 14px; color: var(--muted); }
 #levels { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
-.oops { position: fixed; inset: 0; z-index: 50; background: rgba(15, 12, 8, .94); overflow-y: auto; display: flex; align-items: center; justify-content: center; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s ease-out both; }
-.oops-card { width: 100%; max-width: 400px; display: grid; gap: 12px; margin: auto; }
-.oops-tag { text-align: center; color: #fff; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; opacity: .85; }
-.snap { position: relative; margin: 0; border-radius: 16px; overflow: hidden; border: 4px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,.5); animation: pop .6s cubic-bezier(.2, 1.4, .4, 1) both, wobble 2.4s ease-in-out .7s infinite; }
-.snap img { display: block; width: 100%; height: auto; }
-.stamp { position: absolute; right: 8px; top: 12px; font-family: var(--font-display); font-size: 40px; line-height: 1; color: #E5483A; border: 4px solid #E5483A; border-radius: 10px; padding: 2px 10px; background: rgba(255,255,255,.82); transform: rotate(12deg); animation: slam .35s ease-in .6s both; letter-spacing: .04em; }
-.bubble { position: relative; background: #fff; color: #1F1C17; border-radius: 16px; padding: 12px 14px; font-size: 16px; line-height: 1.35; font-weight: 600; text-align: center; animation: rise .4s ease-out .5s both; }
-.bubble::before { content: ""; position: absolute; left: 50%; top: -7px; width: 14px; height: 14px; background: #fff; transform: translateX(-50%) rotate(45deg); }
-.oops .sol { text-align: center; color: #fff; font-size: 18px; animation: rise .4s ease-out .8s both; }
-.oops .sol b { color: #8FE0A0; font-size: 28px; }
-.oops .btn { animation: rise .4s ease-out 1s both; }
-body.turb-on .game, .turb { animation: turb .55s ease-in-out; }
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
-@keyframes pop { 0% { opacity: 0; transform: scale(.3) rotate(-14deg); } 60% { opacity: 1; transform: scale(1.08) rotate(3deg); } 100% { transform: scale(1) rotate(0); } }
-@keyframes wobble { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
-@keyframes slam { 0% { opacity: 0; transform: scale(3.2) rotate(12deg); } 70% { opacity: 1; transform: scale(.92) rotate(12deg); } 100% { opacity: 1; transform: scale(1) rotate(12deg); } }
-@keyframes turb { 0%, 100% { transform: none; } 10% { transform: translate(-5px, 3px) rotate(-.4deg); } 25% { transform: translate(5px, -3px) rotate(.4deg); } 40% { transform: translate(-4px, 2px); } 60% { transform: translate(4px, -2px); } 80% { transform: translate(-2px, 1px); } }
 #duelCard.invite { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.correction { width: 100%; display: grid; gap: 6px; text-align: center; }
+.correction .sol { font-size: 18px; }
+.correction .sol b { color: var(--ok); font-size: 26px; }
+#flagBtn[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+#flagBtn[aria-pressed="true"] svg { fill: currentColor; }
+.ftoast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: var(--fg); color: var(--bg); padding: 9px 16px; border-radius: 99px; font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.3); max-width: calc(100% - 32px); text-align: center; }
+.bankmeta { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .upd { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 60; border: 0; border-radius: 12px; background: var(--fg); color: var(--bg); padding: 12px 14px; font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
-body.gated #home, body.gated #game, body.gated #results, body.gated #oops { display: none !important; }
+body.gated #home, body.gated #game, body.gated #results { display: none !important; }
 .gate-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
 .gate-card h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
 .steps { list-style: none; counter-reset: st; margin: 0; padding: 0; display: grid; gap: 14px; }
@@ -239,6 +228,7 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
 </head>
 <body>
 
+<div id="flagToast" class="ftoast" role="status" hidden></div>
 <button id="updBanner" class="upd" type="button" hidden>Nouvelle version prête : touche ici ou reviens à l'accueil pour l'installer</button>
 
 <!-- INSTALLATION : l'appli ne s'ouvre que depuis l'écran d'accueil -->
@@ -308,6 +298,16 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
   <button class="btn secondary" id="psyBtn" type="button" style="margin-top:8px"></button>
   <p class="record" id="recordLine"></p>
 
+  <section class="card" id="bankCard" style="margin-top:16px">
+    <h2>Ma banque de questions <span class="badge" id="bankCount"></span></h2>
+    <p class="level-desc" id="bankEmpty" style="margin:0">Touche le drapeau pendant une question (ou après une erreur) pour la garder ici et la retravailler plus tard.</p>
+    <div id="bankBody" hidden>
+      <button class="btn" id="bankGo" type="button" style="margin-bottom:12px"></button>
+      <div id="bankList"></div>
+      <button class="link-btn" id="bankClear" type="button" style="margin-top:8px">Tout effacer</button>
+    </div>
+  </section>
+
   <p class="offline" id="offlineLine"></p>
   </div>
 
@@ -360,7 +360,9 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
       <div class="stat"><span id="sOk">0</span><small>Justes</small></div>
       <div class="stat" id="sTimeBox"><span id="sTime">1:00</span><small>Temps</small></div>
     </div>
-    <span style="width:44px"></span>
+    <button class="icon-btn" id="flagBtn" type="button" aria-pressed="false" aria-label="Garder cette question dans ma banque">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>
+    </button>
   </div>
   <div class="timebar" id="timebar"><i id="timefill"></i></div>
 
@@ -368,6 +370,7 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
     <div class="kind" id="kind"></div>
     <div class="q" id="question"></div>
     <div class="answer empty" id="answer" aria-live="polite"></div>
+    <div class="correction" id="correction" hidden><div class="sol" id="sol"></div></div>
   </div>
 
   <div class="pad" id="pad">
@@ -378,20 +381,6 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
     <button type="button" class="go" id="go" data-k="ok">Valider</button>
   </div>
 </main>
-
-<!-- RÉACTION À UNE ERREUR -->
-<div id="oops" class="oops" hidden role="dialog" aria-live="polite" aria-label="Erreur">
-  <div class="oops-card">
-    <div class="oops-tag" id="oopsTag"></div>
-    <figure class="snap" id="snap">
-      <img id="oopsImg" alt="" width="720" height="540">
-      <span class="stamp">RATÉ !</span>
-    </figure>
-    <div class="bubble"><span id="oopsMsg"></span></div>
-    <div class="sol" id="oopsSol"></div>
-    <button class="btn" id="oopsNext" type="button">Suivant</button>
-  </div>
-</div>
 
 <!-- RÉSULTATS -->
 <main id="results" class="screen" hidden>
@@ -1188,13 +1177,13 @@ function refreshHome() {
   $("optSound").setAttribute("aria-pressed", String(settings.sound !== false));
   $("optWeak").setAttribute("aria-pressed", String(!!settings.weak));
   $("psyBtn").textContent = "Séance PSY0 (planches) · " + fmtTime((settings.timer || 600) * 1000);
-  renderDaily(); renderProgress(); if (mainTab === "stats") renderStats();
+  renderDaily(); renderBank(); renderProgress(); if (mainTab === "stats") renderStats();
   const r = store.get("records", {})[recordKey()];
   $("recordLine").textContent = r ? "Record avec ces réglages : " + describeRecord(r) : "";
   const h = store.get("history", []);
   $("histCard").hidden = !h.length;
   $("hist").innerHTML = h.slice(0, 10).map((s) =>
-    `<li><span>${s.daily ? "Défi du jour" : s.psy0 ? "Séance PSY0 · " + LEVELS[s.level].name : LEVELS[s.level].name + " · " + s.ops.map((o) => OP_BY_ID[o] ? OP_BY_ID[o].sym : "").join(" ")}</span><span class="num">${s.correct}/${s.total} <span class="when">· ${new Date(s.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span></span></li>`).join("");
+    `<li><span>${s.daily ? "Défi du jour" : s.bank ? "Ma banque de questions" : s.psy0 ? "Séance PSY0 · " + LEVELS[s.level].name : LEVELS[s.level].name + " · " + s.ops.map((o) => OP_BY_ID[o] ? OP_BY_ID[o].sym : "").join(" ")}</span><span class="num">${s.correct}/${s.total} <span class="when">· ${new Date(s.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span></span></li>`).join("");
 }
 
 /* ---------- Records & historique ---------- */
@@ -1207,83 +1196,62 @@ function better(a, b) { // a meilleur que b ?
 }
 function fmtTime(ms) { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
 
-/* ---------- Réaction à une erreur : photo + moquerie ---------- */
-const ROASTS = [
-  { img: "photo-boisson.jpg", tag: "Service en cabine", msgs: [
-    "Raté. Je te sers un café, histoire que tu restes éveillé pour la prochaine.",
-    "Tu rates, je sers. Chacun son métier, et toi tu as raté le tien.",
-    "Eau gazeuse ou bonne réponse ? Il ne reste que l'eau gazeuse.",
-    "Même mon chariot calcule mieux que toi, et il n'a pas de cerveau.",
-    "Si ton calcul était une boisson, ce serait de l'eau tiède.",
-    "Un thé ? Ça te laissera le temps de réfléchir, et il t'en faut clairement beaucoup.",
-    "Je te sers un café, mais je garde la bonne réponse pour un passager plus doué.",
-    "Boisson chaude pour toi, honte froide pour ce calcul."
-  ] },
-  { img: "photo-chiottes.jpg", tag: "Équipe nettoyage", msgs: [
-    "Les chiottes sont propres. Ton calcul, c'est une autre histoire.",
-    "J'ai déjà vu pire dans des toilettes. Mais pas beaucoup.",
-    "Même un seau d'eau de Javel ne rattrape pas cette réponse.",
-    "Attention, sol glissant. Comme ta logique.",
-    "Je nettoie des toilettes toute la journée, et ta réponse est quand même plus sale.",
-    "Mission du jour : nettoyer. Mission de ta vie : apprendre ce calcul.",
-    "Ce que tu viens de sortir, je le tire à la chasse.",
-    "Ton calcul à la poubelle, et c'est encore moi qui descends la vider."
-  ] },
-  { img: "photo-propre.jpg", tag: "Contrôle qualité", msgs: [
-    "C'est assez faux ou je continue ?",
-    "Verdict du contrôle qualité : non, non et re-non.",
-    "Je note : « calcul mental, peut mieux faire. Beaucoup mieux. »",
-    "Ce travail est à refaire, intégralement.",
-    "J'ai vu des enfants de huit ans faire mieux.",
-    "Ta réponse est tellement fausse que je me demande si tu l'as fait exprès.",
-    "C'est propre ? Non. C'est juste ? Encore moins.",
-    "Tu veux que je continue, ou tu abandonnes déjà ?"
-  ] }
-];
-const LEVEL_ROASTS = [
-  ["Niveau Puceau. Puceau. Et tu rates quand même.", "Le niveau le plus facile, et tu trouves le moyen de te planter. Chapeau.", "Un élève de CE1 t'aurait battu.", "Ce niveau s'appelle Puceau pour une raison, et tu viens de la prouver."],
-  ["Niveau intermédiaire, et tu fais du niveau débutant.", "Ni facile ni dur, et tu rates quand même. Fascinant.", "Intermédiaire : le niveau où l'on aurait dû s'attendre à mieux."],
-  ["C'est difficile, d'accord. Mais pas à ce point-là.", "On t'avait dit de te concentrer. Tu t'es concentré sur quoi, au juste ?", "Difficile ? Pour toi, tout a l'air difficile."],
-  ["Expert, sur le papier seulement.", "Expert de l'erreur, alors.", "Titre d'expert retiré, avec effet immédiat."],
-  ["Tu as osé le niveau Lucas. Respect pour le courage, zéro pour le résultat.", "Ce niveau est réservé aux fous. Toi, tu es juste fou, pas fort.", "Niveau Lucas, résultat pas Lucas."]
-];
-const OP_ROASTS = {
-  add: ["Une addition. UNE ADDITION.", "Additionner, c'est pourtant le début de tout. Pour toi, c'est la fin."],
-  sub: ["Une soustraction, et tu te perds ? Il te reste combien de neurones ?", "Tu as enlevé la mauvaise chose : ta concentration."],
-  mul: ["Les tables de multiplication, ça s'apprend à l'école. Tu y étais ?", "Multiplier, c'est aller vite. Toi, tu multiplies surtout les erreurs."],
-  div: ["Diviser, c'est partager. Là, tu partages surtout ton ignorance.", "Une division ratée : le reste, c'est ton amour-propre."],
-  chain: ["Une longue chaîne, une longue série d'erreurs.", "Tu as perdu le fil dès le deuxième nombre, avoue."],
-  eq: ["Une égalité à trou, et tu tombes dedans à pieds joints.", "Le trou, c'était la réponse. Il est à l'intérieur de ta tête."],
-  intrus: ["Les égalités fausses, c'était toi aujourd'hui.", "L'intrus, c'est celui qui a répondu."],
-  frac: ["Fractions : même une pizza serait mieux partagée.", "Le dénominateur te regarde avec pitié."],
-  pct: ["Pourcentages : tu es sûr à 0 %.", "Même la remise de 10 % te coûterait trop cher."],
-  dec: ["Une virgule mal placée, et tout s'écroule, comme ta réputation.", "Décimaux : même la virgule a eu honte pour toi."],
-  sq: ["Un carré. Même la forme géométrique est plus carrée que toi.", "Mettre au carré, c'était la seule consigne."]
-};
-let lastRoast = -1, lastLine = "";
-function oops(solHTML) {
-  let r; do { r = Math.floor(Math.random() * ROASTS.length); } while (r === lastRoast);
-  lastRoast = r;
-  const R = ROASTS[r], q = G && G.q, x = Math.random();
-  let pool = R.msgs;
-  if (q && x < .3 && OP_ROASTS[q.op]) pool = OP_ROASTS[q.op];
-  else if (G && x < .5) pool = LEVEL_ROASTS[G.daily ? Math.min(G.level, 4) : G.level] || R.msgs;
-  let line; do { line = pool[Math.floor(Math.random() * pool.length)]; } while (line === lastLine && pool.length > 1);
-  lastLine = line;
-  $("oopsImg").src = R.img; $("oopsTag").textContent = R.tag; $("oopsMsg").textContent = line;
-  $("oopsSol").innerHTML = solHTML;
+/* ---------- Correction en ligne après une erreur (le chrono est en pause pendant la lecture) ---------- */
+function showCorrection(solHTML) {
+  $("sol").innerHTML = solHTML; $("correction").hidden = false;
   sfx.bad();
-  // Rejoue les animations à chaque erreur, et met le chrono en pause pendant la moquerie
-  const o = $("oops"); o.hidden = false;
-  [$("snap"), o.querySelector(".stamp"), o.querySelector(".bubble"), o.querySelector(".sol"), o.querySelector(".btn")].forEach((el) => { el.style.animation = "none"; void el.offsetWidth; el.style.animation = ""; });
   if (G && !G.pauseAt) G.pauseAt = performance.now();
-  const g = $("game"); g.classList.remove("turb"); void g.offsetWidth; g.classList.add("turb");
 }
-function hideOops() {
-  $("oops").hidden = true;
+function hideCorrection() {
+  $("correction").hidden = true;
   if (G && G.pauseAt) { G.start += performance.now() - G.pauseAt; G.pauseAt = 0; }
 }
-$("oopsNext").onclick = () => { if (G && G.waiting) afterAnswer(); };
+
+/* ---------- Drapeau : banque de questions à retravailler ---------- */
+const flagKey = (q) => q.op + "|" + String(q.html);
+const loadFlags = () => { const f = store.get("flags", []); return Array.isArray(f) ? f : []; };
+function isFlagged(q) { return !!q && loadFlags().some((f) => f.key === flagKey(q)); }
+function updateFlagBtn() {
+  const b = $("flagBtn"), on = !!(G && G.q) && isFlagged(G.q);
+  b.setAttribute("aria-pressed", String(on));
+  b.setAttribute("aria-label", on ? "Retirer cette question de ma banque" : "Garder cette question dans ma banque");
+}
+function flagToast(msg) { const t = $("flagToast"); t.textContent = msg; t.hidden = false; clearTimeout(flagToast.t); flagToast.t = setTimeout(() => { t.hidden = true; }, 1600); }
+function toggleFlag() {
+  if (!G || !G.q) return;
+  const q = G.q, key = flagKey(q); let fl = loadFlags(); const i = fl.findIndex((f) => f.key === key);
+  if (i >= 0) { fl.splice(i, 1); flagToast("Retirée de ta banque"); }
+  else {
+    fl.unshift({ key, op: q.op, html: q.html, hasSlot: q.hasSlot, long: q.long, hint: q.hint, ans: q.ans, tol: q.tol, center: q.center, why: q.why, pick: q.pick, items: q.items, at: Date.now(), tries: 0, wins: 0 });
+    fl = fl.slice(0, 300); flagToast("Ajoutée à ta banque de questions");
+  }
+  store.set("flags", fl); updateFlagBtn();
+}
+$("flagBtn").onclick = toggleFlag;
+function bankUpdate(ok) {
+  if (!G || !G.bank || !G.q) return;
+  const fl = loadFlags(), f = fl.find((x) => x.key === flagKey(G.q)); if (!f) return;
+  f.tries = (f.tries || 0) + 1; if (ok) f.wins = (f.wins || 0) + 1; store.set("flags", fl);
+}
+function bankQuestionHTML(f) { return f.pick ? "Planche d'égalités : repère les intrus" : (f.hasSlot ? f.html : `${f.html} = ${SLOT}`); }
+function bankAnswerHTML(f) {
+  if (f.pick) return f.items.map((it, i) => `${i + 1}. ${it.html}${it.bad ? ' <b style="color:var(--bad)">✗ fausse</b>' : ""}`).join("<br>");
+  return `<b>Réponse :</b> ${f.hasSlot ? f.html.replace(SLOT, `<b>${fmt(f.ans)}</b>`) : `${f.html} = <b>${fmt(f.ans)}</b>`}`;
+}
+function renderBank() {
+  const fl = loadFlags();
+  $("bankCount").textContent = fl.length ? String(fl.length) : "";
+  $("bankEmpty").hidden = fl.length > 0; $("bankBody").hidden = !fl.length;
+  $("bankGo").textContent = `S'entraîner sur ma banque (${Math.min(fl.length, 50)} question${Math.min(fl.length, 50) > 1 ? "s" : ""})`;
+  $("bankList").innerHTML = fl.map((f, i) => {
+    const lbl = OP_BY_ID[f.op] ? OP_BY_ID[f.op].label : "";
+    const meta = f.tries ? `${lbl} · revue ${f.tries} fois, réussie ${f.wins || 0}` : `${lbl} · pas encore revue`;
+    return `<details class="tipitem"><summary><span class="mark ko">⚑</span><span class="tq">${bankQuestionHTML(f)}</span></summary><div class="why">${bankAnswerHTML(f)}<br><br>${f.why || ""}<div class="bankmeta">${meta}</div><button class="link-btn danger" data-rm="${i}" type="button" style="margin-top:6px">Retirer de la banque</button></div></details>`;
+  }).join("");
+}
+$("bankList").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (!b) return; const fl = loadFlags(); fl.splice(+b.dataset.rm, 1); store.set("flags", fl); renderBank(); });
+$("bankClear").onclick = () => { if (confirm("Vider toute ta banque de questions ?")) { store.set("flags", []); renderBank(); } };
+$("bankGo").onclick = () => startGame("bank");
 
 /* ---------- Stats par type de calcul (points faibles) ---------- */
 let TOT = null;
@@ -1585,12 +1553,15 @@ function finalizeDaily(g, correct, total, ms) {
 }
 function startGame(kind) {
   if (document.body.classList.contains("gated")) return;
-  const daily = kind === true, psy0 = kind === "psy0";
-  if (daily ? store.get("daily", {})[dateKey()] : !psy0 && !settings.ops.length) return;
+  const daily = kind === true, psy0 = kind === "psy0", bank = kind === "bank";
+  if (bank && !loadFlags().length) return;
+  if (daily ? store.get("daily", {})[dateKey()] : !psy0 && !bank && !settings.ops.length) return;
   sfx.init();
   if (daily) { const d = store.get("daily", {}), day0 = dateKey(); d[day0] = { correct: 0, total: 0, ms: 0, partial: true }; store.set("daily", d); updateStreak(day0); }
-  const base = { items: [], correct: 0, start: performance.now(), input: "", q: null, waiting: false, last: "", daily: false, psy0: false, weak: false, rng: null };
-  G = daily
+  const base = { items: [], correct: 0, start: performance.now(), input: "", q: null, waiting: false, last: "", daily: false, psy0: false, bank: false, weak: false, rng: null };
+  G = bank
+    ? Object.assign(base, { bank: true, ops: [], level: 1, timer: 0, count: Math.min(loadFlags().length, 50), queue: loadFlags().slice().sort(() => Math.random() - .5).slice(0, 50), qi: 0 })
+    : daily
     ? Object.assign(base, { daily: true, day: dateKey(), ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, rng: mulberry32(seedOf("calcul-mental|" + dateKey() + (RESET_MAP[dateKey()] ? "|" + DAILY_RESET_ID : ""))) })
     : psy0
       ? Object.assign(base, { psy0: true, ops: [...PSY0_OPS], level: 1, timer: settings.timer || 600, count: 0 })
@@ -1619,9 +1590,12 @@ function nextQuestion() {
   let q, op, guard = 0;
   if (G.daily) G.level = dailyLevel(G.items.length);
   else if (G.psy0) G.level = Math.min(2, 1 + Math.floor(G.items.length / 8)); // planches : niveau Intermédiaire (celui des vraies planches), puis Difficile
-  rng = G.rng || Math.random;
-  try { do { op = G.daily ? pick(G.ops) : chooseOp(); q = GEN[op](G.level); } while (q.html === G.last && guard++ < 20); }
-  finally { rng = Math.random; }
+  if (G.bank) { q = JSON.parse(JSON.stringify(G.queue[G.qi++ % G.queue.length])); op = q.op; }
+  else {
+    rng = G.rng || Math.random;
+    try { do { op = G.daily ? pick(G.ops) : chooseOp(); q = GEN[op](G.level); } while (q.html === G.last && guard++ < 20); }
+    finally { rng = Math.random; }
+  }
   if (q.why) q.why = q.why.replace(/\b\d{5,}\b/g, (m) => m.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F"));
   q.op = op; q.ans = q.pick ? q.ans : round4(q.ans); q.t0 = performance.now();
   G.q = q; G.last = q.html; G.input = ""; G.waiting = false; G.sel = new Set(); G.none = false;
@@ -1639,12 +1613,13 @@ function nextQuestion() {
     $("question").innerHTML = q.hasSlot ? q.html : `${q.html} = ${SLOT}`;
     $("question").classList.toggle("long", !!q.long || q.html.length > 60);
   }
-  hideOops();
+  hideCorrection();
   $("go").textContent = "Valider";
   const done = G.items.length;
   $("sProg").textContent = G.count ? `${done + 1}/${G.count}` : String(done);
   $("sOk").textContent = String(G.correct);
   renderAnswer();
+  updateFlagBtn();
 }
 function renderAnswer(state) {
   const a = $("answer");
@@ -1684,7 +1659,7 @@ function submitPick() {
   const chosen = [...G.sel].sort((a, b) => a - b);
   if (!chosen.length && !G.none) { $("question").classList.add("shake"); setTimeout(() => $("question").classList.remove("shake"), 260); return; }
   const q = G.q, ok = chosen.join() === q.ans.join();
-  G.items.push({ pick: true, items: q.items, ans: q.ans, chosen, op: q.op, ok, why: q.why, ms: performance.now() - q.t0 }); bump(q.op, ok); saveDailyProgress();
+  G.items.push({ pick: true, items: q.items, ans: q.ans, chosen, op: q.op, ok, why: q.why, ms: performance.now() - q.t0 }); bump(q.op, ok); bankUpdate(ok); saveDailyProgress();
   $("question").querySelectorAll("button.pick[data-i]").forEach((b, i) => {
     b.classList.add("reveal"); b.disabled = true;
     if (q.items[i].bad) b.classList.add("isfalse"); else if (G.sel.has(i)) b.classList.add("wrong");
@@ -1694,14 +1669,14 @@ function submitPick() {
   if (ok) { G.correct++; sfx.ok(); setTimeout(() => { if (G && G.waiting) afterAnswer(); }, 700); }
   else {
     $("go").textContent = "Suivant";
-    oops(q.ans.length ? "Les fausses étaient : <b>" + q.ans.map((i) => "n°" + (i + 1)).join(", ") + "</b>" : "<b>Aucune</b> n'était fausse");
+    showCorrection(q.ans.length ? "Les fausses étaient : <b>" + q.ans.map((i) => "n°" + (i + 1)).join(", ") + "</b>" : "<b>Aucune</b> n'était fausse");
   }
 }
 function submit() {
   const v = parseInput(G.input);
   if (Number.isNaN(v)) { $("answer").classList.add("shake"); setTimeout(() => $("answer").classList.remove("shake"), 260); return; }
   const ok = Math.abs(v - (G.q.center !== undefined ? G.q.center : G.q.ans)) <= (G.q.tol || 0) + 1e-9;
-  G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, why: G.q.why, ms: performance.now() - G.q.t0 }); bump(G.q.op, ok); saveDailyProgress();
+  G.items.push({ html: G.q.html, hasSlot: G.q.hasSlot, op: G.q.op, ans: G.q.ans, given: v, ok, why: G.q.why, ms: performance.now() - G.q.t0 }); bump(G.q.op, ok); bankUpdate(ok); saveDailyProgress();
   if (ok) {
     G.correct++;
     sfx.ok();
@@ -1712,7 +1687,7 @@ function submit() {
     renderAnswer("bad");
     const shown = G.q.hasSlot ? G.q.html.replace(SLOT, `<b>${fmt(G.q.ans)}</b>`) : `${G.q.html} = <b>${fmt(G.q.ans)}</b>`;
     $("go").textContent = "Suivant";
-    oops(shown);
+    showCorrection(shown);
     G.waiting = true;
   }
 }
@@ -1724,13 +1699,13 @@ function afterAnswer() {
 function endGame() {
   clearInterval(tick);
   if (!G) return;
-  hideOops();
+  hideCorrection();
   const g = G; G = null;
   const total = g.items.length;
   if (!total) { if (g.daily) finalizeDaily(g, 0, 0, Math.min(performance.now() - g.start, g.timer * 1000)); show("home"); renderHome(); return; }
   const ms = g.timer ? Math.min(performance.now() - g.start, g.timer * 1000) : performance.now() - g.start;
-  const session = { date: Date.now(), level: g.level, ops: g.ops, correct: g.correct, total, ms, timer: g.timer, count: g.count, daily: !!g.daily, psy0: !!g.psy0 };
-  const complete = !g.daily && (g.timer ? ms >= g.timer * 1000 - 300 : g.count && total >= g.count);
+  const session = { date: Date.now(), level: g.level, ops: g.ops, correct: g.correct, total, ms, timer: g.timer, count: g.count, daily: !!g.daily, psy0: !!g.psy0, bank: !!g.bank };
+  const complete = !g.daily && !g.bank && (g.timer ? ms >= g.timer * 1000 - 300 : g.count && total >= g.count);
   // Record seulement pour une séance menée jusqu'au bout
   let newRec = false;
   if (complete) {
@@ -1751,7 +1726,7 @@ function endGame() {
     $("shareText").textContent = shareTextFor(day, rec);
   }
   sfx.end();
-  $("resLabel").textContent = g.daily ? `Défi du jour · ${fmtDay(g.day)}` : g.psy0 ? `Séance PSY0 · ${fmtTime(g.timer * 1000)}` : `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
+  $("resLabel").textContent = g.daily ? `Défi du jour · ${fmtDay(g.day)}` : g.psy0 ? `Séance PSY0 · ${fmtTime(g.timer * 1000)}` : g.bank ? `Ma banque de questions · ${total} question${total > 1 ? "s" : ""}` : `${LEVELS[g.level].name} · ${g.timer ? "Timer " + fmtTime(g.timer * 1000) : (g.count ? g.count + " calculs" : "Libre")}`;
   $("resScore").innerHTML = g.timer ? `${g.correct}<small> justes</small>` : `${g.correct}<small>/${total}</small>`;
   $("resMsg").textContent = acc === 100 ? "Sans faute, bravo !" : acc >= 80 ? "Très bien, continue comme ça !" : acc >= 50 ? "Pas mal, regarde les corrections ci-dessous." : "Courage, chaque séance compte.";
   $("resRec").hidden = !newRec;
