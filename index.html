@@ -1666,8 +1666,6 @@ function press(k) {
   else if (k === ",") { if (!G.input.includes(",") && G.input.length < 10) G.input = (G.input || "0") + ","; }
   else if (G.input.length < 10) G.input = G.input === "0" ? k : G.input + k;
   renderAnswer();
-  // Validation automatique dès que la réponse juste est tapée en entier
-  if (k !== "del" && k !== "," && parseInput(G.input) === G.q.ans && G.input.replace(",", "").length >= fmt(G.q.ans).replace(/[, ]/g, "").length) submit(true);
 }
 function toggleNone() {
   if (!G || !G.q.pick || G.waiting) return;
