@@ -1319,6 +1319,21 @@ function chooseOp() {
 }
 
 /* ---------- Défi du jour : mêmes calculs pour tout le monde, 10 minutes ---------- */
+/* Réinitialisation d'un défi du jour : le jour porte un nouvel identifiant dans la base (les anciens scores y restent mais sont ignorés) */
+const DAILY_RESET_ID = "r1";
+const RESET_MAP = { "2026-11-26": "2026-11-2R" };
+const toWire = (day) => RESET_MAP[day] || day;
+const fromWire = (w) => Object.keys(RESET_MAP).find((k) => RESET_MAP[k] === w) || w;
+function applyDailyReset() {
+  if (store.get("dailyReset", null) === DAILY_RESET_ID) return;
+  const d = store.get("daily", {});
+  Object.keys(RESET_MAP).forEach((day) => {
+    delete d[day];
+    const sk = store.get("streak", null);
+    if (sk && sk.last === day) { sk.count = Math.max(0, (sk.count || 1) - 1); const [y, m, dd] = day.split("-").map(Number); sk.last = sk.count > 0 ? dateKey(new Date(y, m - 1, dd - 1)) : ""; store.set("streak", sk); }
+  });
+  store.set("daily", d); store.set("dailyReset", DAILY_RESET_ID);
+}
 const DAILY = { ops: ["add", "sub", "mul", "div", "chain", "eq", "intrus", "frac", "pct", "dec", "sq"], timer: 600 };
 const dateKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const yesterdayKey = () => { const d = new Date(); d.setDate(d.getDate() - 1); return dateKey(d); };
@@ -1396,6 +1411,7 @@ async function duelConnect() {
 }
 async function pushDuel(day, e) {
   if (!duel) return;
+  day = toWire(day);
   try {
     const { db, fs } = await loadFb();
     await fs.setDoc(fs.doc(db, "duels", duel.room, "results", `${day}_${duel.pid}`), { day, pid: duel.pid, name: duel.name, correct: e.correct, total: e.total, ms: Math.round(e.ms), at: Date.now() });
@@ -1403,7 +1419,7 @@ async function pushDuel(day, e) {
 }
 const PRESENCE_DAY = "0000-00-00";   // document « je suis dans ce duel » : visible par l'autre joueur avant son premier défi
 function announceMe() { if (duel && !duelDocs.some((r) => r.day === PRESENCE_DAY && r.pid === duel.pid)) pushDuel(PRESENCE_DAY, { correct: 0, total: 0, ms: 0 }); }
-function syncMine() { const d = store.get("daily", {}); Object.keys(d).forEach((day) => { if (G && G.daily && day === G.day) return; if (!duelDocs.some((r) => r.day === day && r.pid === duel.pid)) pushDuel(day, d[day]); }); }
+function syncMine() { const d = store.get("daily", {}); Object.keys(d).forEach((day) => { if (G && G.daily && day === G.day) return; if (!duelDocs.some((r) => r.day === toWire(day) && r.pid === duel.pid)) pushDuel(day, d[day]); }); }
 function joinDuel(room, name) {
   name = (name || "").trim().slice(0, 20); if (!name) return false;
   const pid = store.get("pid", null) || newId(10); store.set("pid", pid);
@@ -1413,7 +1429,9 @@ function joinDuel(room, name) {
 }
 function duelModel() {
   const me = duel.pid, by = {}, names = { [me]: duel.name }, order = [me];
-  duelDocs.slice().sort((a, b) => a.at - b.at).forEach((r) => { if (r.day !== PRESENCE_DAY) (by[r.day] = by[r.day] || {})[r.pid] = r; if (!names[r.pid] || r.pid !== me) names[r.pid] = r.name; if (!order.includes(r.pid)) order.push(r.pid); });
+  duelDocs.slice().sort((a, b) => a.at - b.at).forEach((r0) => { if (RESET_MAP[r0.day]) return;   // ancien score d'un jour réinitialisé : ignoré
+    const r = r0.day === PRESENCE_DAY ? r0 : Object.assign({}, r0, { day: fromWire(r0.day) });
+    if (r.day !== PRESENCE_DAY) (by[r.day] = by[r.day] || {})[r.pid] = r; if (!names[r.pid] || r.pid !== me) names[r.pid] = r.name; if (!order.includes(r.pid)) order.push(r.pid); });
   const other = order[1] || null, days = Object.keys(by).sort();
   const cmp = days.filter((d) => other && by[d][me] && by[d][other]).map((d) => {
     const a = by[d][me], b = by[d][other], diff = a.correct - b.correct;
@@ -1573,7 +1591,7 @@ function startGame(kind) {
   if (daily) { const d = store.get("daily", {}), day0 = dateKey(); d[day0] = { correct: 0, total: 0, ms: 0, partial: true }; store.set("daily", d); updateStreak(day0); }
   const base = { items: [], correct: 0, start: performance.now(), input: "", q: null, waiting: false, last: "", daily: false, psy0: false, weak: false, rng: null };
   G = daily
-    ? Object.assign(base, { daily: true, day: dateKey(), ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, rng: mulberry32(seedOf("calcul-mental|" + dateKey())) })
+    ? Object.assign(base, { daily: true, day: dateKey(), ops: [...DAILY.ops], level: 1, timer: DAILY.timer, count: 0, rng: mulberry32(seedOf("calcul-mental|" + dateKey() + (RESET_MAP[dateKey()] ? "|" + DAILY_RESET_ID : ""))) })
     : psy0
       ? Object.assign(base, { psy0: true, ops: [...PSY0_OPS], level: 1, timer: settings.timer || 600, count: 0 })
       : Object.assign(base, { ops: [...settings.ops], level: settings.level, timer: settings.timer, count: settings.timer ? 0 : settings.count, weak: !!settings.weak });
@@ -1908,6 +1926,7 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   }).catch(() => {});
 }
 
+applyDailyReset();
 applyGate();
 renderTabs();
 renderHome();
