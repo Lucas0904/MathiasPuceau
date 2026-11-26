@@ -720,13 +720,14 @@ const GEN = {
     return { html, ans: total, long: true, why };
   },
   /* Égalités à trou, façon PSY0 : 24 ÷ 2 = 2 × ? */
-  /* Grandeurs et conversions (aviation) : réponse acceptée à 5 % près par défaut, comme en vrai calcul mental.
+  /* Grandeurs et conversions (aviation) : réponse acceptée à 10 % près par défaut, comme en vrai calcul mental.
      Les réponses sont toujours positives (le clavier n'a pas de signe moins). */
   conv(l) {
+    l = Math.max(0, l - 1);   // les grandeurs sont d'un cran plus faciles que le niveau choisi
     const r1 = (x) => Math.round(x * 10) / 10, r2 = (x) => Math.round(x * 100) / 100, F = fmt;
     const nn = (x) => (x >= 20 ? Math.round(x) : r1(x));
     const Q = (left, unit, exact, why, o) => {
-      o = o || {}; const t = o.t || .05;
+      o = o || {}; const t = o.t || .10;
       const ans = o.exact ? r2(exact) : o.dp ? Math.round(exact * 10 ** o.dp) / 10 ** o.dp : nn(exact);
       const tol = o.exact ? 0 : Math.max(t * Math.abs(exact), o.ta || .05);
       return { html: `${left} = ${SLOT} ${unit}`, ans, tol, center: o.exact ? undefined : exact, rule: o.rule, hasSlot: true,
@@ -779,13 +780,6 @@ const GEN = {
       { c: "Température", lo: 1, hi: 3, f: () => { const c = 5 * rnd(0, 24), f = c * 1.8 + 32, ru = (f - 32) / 2 * 1.1; return Q(`${f} °F`, "°C", c, `On retire 32 : ${f} − 32 = ${f - 32}. Puis ÷ 1,8 : la moitié (${F((f - 32) / 2)}), plus 10 % = ${F(r1(ru))}.`, { rule: ru, ta: 1 }); } },
       { c: "Température", lo: 2, hi: 4, f: () => { const h = 1000 * rnd(1, 7), isa = 15 - 2 * h / 1000; return Q(`Température ISA à ${F(h)} ft`, "°C", isa, `ISA : 15 °C au niveau de la mer, moins 2 °C par 1000 ft. 15 − 2 × ${h / 1000} = ${isa}.`, { exact: true }); } },
       { c: "Température", lo: 3, hi: 4, f: () => { const h = 1000 * rnd(1, 8), isa = 15 - 2 * h / 1000, dev = rnd(2, 22), T = isa + dev; return Q(`${T} °C à ${F(h)} ft : écart avec l'ISA`, "°C", dev, `ISA à ${F(h)} ft = 15 − 2 × ${h / 1000} = ${isa} °C. Écart : ${T} − ${isa} = ${dev}.`, { exact: true }); } },
-      /* ----- Pression ----- */
-      { c: "Pression", lo: 1, hi: 3, f: () => { const n = rnd(985, 1040), ru = 29.92 + (n - 1013) * .0295; return Q(`${n} hPa`, "inHg", n * .02953, `Repère : 1013 hPa = 29,92 inHg, et 1 hPa ≈ 0,03 inHg. Écart ${n - 1013} hPa × 0,03 = ${F(r2((n - 1013) * .03))}, donc ≈ ${F(r2(ru))}.`, { rule: ru, t: .01, ta: .15, dp: 2 }); } },
-      { c: "Pression", lo: 1, hi: 3, f: () => { const n = rnd(2880, 3080) / 100, ru = 1013 + (n - 29.92) * 34; return Q(`${F(n)} inHg`, "hPa", n * 33.8639, `Repère : 29,92 inHg = 1013 hPa, et 0,1 inHg ≈ 3,4 hPa. Écart ${F(r2(n - 29.92))} inHg ≈ ${F(r1((n - 29.92) * 34))} hPa.`, { rule: ru, t: .006, ta: 3 }); } },
-      { c: "Pression", lo: 2, hi: 3, f: () => { const x = rnd(950, 1050) / 1000; return Q(`${F(x)} bar`, "hPa", x * 1000, `1 bar = 1000 hPa : ${F(x)} × 1000 = ${F(x * 1000)}.`, { exact: true }); } },
-      { c: "Pression", lo: 2, hi: 4, f: () => { const n = 5 * rnd(4, 16), ru = n / 14.5; return Q(`${n} psi`, "bar", n * .06895, `1 bar ≈ 14,5 psi. ${n} ÷ 14,5 ≈ ${F(r1(ru))}.`, { rule: ru }); } },
-      { c: "Pression", lo: 3, hi: 4, f: () => { const q = rnd(993, 1033), d = Math.abs(1013 - q) || 7, qq = q === 1013 ? 1020 : q; return Q(`QNH ${qq} : écart d'altitude par rapport à 1013`, "ft", d * 30, `1 hPa ≈ 30 ft. Écart de pression : ${d} hPa × 30 = ${F(d * 30)}.`, { rule: d * 30 }); } },
-      { c: "Pression", lo: 3, hi: 4, f: () => { const a = 500 * rnd(2, 16), q = rnd(993, 1012), v = a + (1013 - q) * 30; return Q(`Altitude ${F(a)} ft, QNH ${q} : altitude pression`, "ft", v, `Altitude pression = altitude + 30 ft par hPa sous 1013. (1013 − ${q}) × 30 = ${(1013 - q) * 30}, donc ${F(a)} + ${(1013 - q) * 30} = ${F(v)}.`, { rule: v }); } },
       /* ----- Temps ----- */
       { c: "Temps", lo: 0, hi: 2, f: () => { const h = pick([1.5, 2.5, 3.5, .75, 1.25, 2.25, 4.5]); return Q(`${F(h)} h`, "min", h * 60, `${F(h)} × 60 = ${F(h * 60)}.`, { exact: true }); } },
       { c: "Temps", lo: 0, hi: 2, f: () => { const m = 6 * rnd(5, 40); return Q(`${m} min`, "h", m / 60, `${m} ÷ 60 = ${F(r2(m / 60))}.`, { exact: true }); } },
@@ -827,7 +821,7 @@ const GEN = {
       { c: "Navigation", lo: 3, hi: 4, f: () => { const w = 5 * rnd(2, 8), v = pick([90, 100, 120, 150, 180, 240]), ru = 60 * w / v; return Q(`Vent de travers ${w} kt, vitesse propre ${v} kt : dérive`, "°", ru, `Règle du 1 sur 60 : dérive ≈ 60 × vent ÷ vitesse = 60 × ${w} ÷ ${v} = ${F(r1(ru))}.`, { rule: ru, ta: .5 }); } },
       { c: "Navigation", lo: 3, hi: 4, f: () => { const a = 1000 * rnd(10, 40), b = 1000 * rnd(1, 6), ru = (a - b) / 1000 * 3; return Q(`Descente de ${F(a)} ft à ${F(b)} ft : distance nécessaire`, "NM", ru, `Règle des 3 : 3 NM par 1000 ft à perdre. (${F(a)} − ${F(b)}) ÷ 1000 = ${(a - b) / 1000}, × 3 = ${F(ru)}.`, { rule: ru }); } },
       { c: "Navigation", lo: 3, hi: 4, f: () => { const v = 10 * rnd(8, 20), ru = v / 10 + 7; return Q(`Virage standard à ${v} kt : inclinaison`, "°", ru, `Inclinaison pour le taux 1 ≈ vitesse ÷ 10 + 7 : ${v} ÷ 10 + 7 = ${F(ru)}.`, { rule: ru }); } },
-      { c: "Navigation", lo: 3, hi: 4, f: () => { const g = 10 * rnd(8, 16); return Q(`Pente 3° à ${g} kt de vitesse sol : taux de descente`, "ft/min", g * 5.3, `Règle : taux de descente (ft/min) ≈ 5 × vitesse sol pour 3°. ${g} × 5 = ${g * 5}.`, { rule: g * 5, t: .07 }); } },
+      { c: "Navigation", lo: 3, hi: 4, f: () => { const g = 10 * rnd(8, 16); return Q(`Pente 3° à ${g} kt de vitesse sol : taux de descente`, "ft/min", g * 5.3, `Règle : taux de descente (ft/min) ≈ 5 × vitesse sol pour 3°. ${g} × 5 = ${g * 5}.`, { rule: g * 5 }); } },
       { c: "Navigation", lo: 3, hi: 4, f: () => { const p = pick([3, 5, 6, 8, 10]), d = Math.atan(p / 100) * 180 / Math.PI, ru = p * .57; return Q(`Pente de ${p} %`, "°", d, `1 % ≈ 0,57°. ${p} × 0,57 = ${F(r1(ru))}.`, { rule: ru }); } },
       { c: "Navigation", lo: 4, hi: 4, f: () => { const v = pick([100, 110, 120, 140, 150]), w = 5 * rnd(1, 6), d = 10 * rnd(5, 20), ru = d / (v - w) * 60; return Q(`TAS ${v} kt, vent de face ${w} kt, ${d} NM : durée`, "min", ru, `Vitesse sol = ${v} − ${w} = ${v - w} kt. Durée = ${d} ÷ ${v - w} × 60 = ${F(Math.round(ru))} min.`, { rule: ru }); } }
     ];
