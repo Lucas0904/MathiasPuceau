@@ -97,6 +97,7 @@ body.turb-on .game, .turb { animation: turb .55s ease-in-out; }
 @keyframes wobble { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
 @keyframes slam { 0% { opacity: 0; transform: scale(3.2) rotate(12deg); } 70% { opacity: 1; transform: scale(.92) rotate(12deg); } 100% { opacity: 1; transform: scale(1) rotate(12deg); } }
 @keyframes turb { 0%, 100% { transform: none; } 10% { transform: translate(-5px, 3px) rotate(-.4deg); } 25% { transform: translate(5px, -3px) rotate(.4deg); } 40% { transform: translate(-4px, 2px); } 60% { transform: translate(4px, -2px); } 80% { transform: translate(-2px, 1px); } }
+#duelCard.invite { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .upd { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 60; border: 0; border-radius: 12px; background: var(--fg); color: var(--bg); padding: 12px 14px; font-size: 14px; font-weight: 600; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
 body.gated #home, body.gated #game, body.gated #results, body.gated #oops { display: none !important; }
 .gate-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
@@ -1365,7 +1366,13 @@ $("shareBtn").onclick = () => shareResult($("shareText").textContent, $("shareBt
 const FB_CONFIG = { apiKey: "AIzaSyAhotRrKVnNX-2HDECwwgSey5KGA6Zt-7w", authDomain: "bastide-83490.firebaseapp.com", projectId: "bastide-83490", storageBucket: "bastide-83490.firebasestorage.app", messagingSenderId: "484222049869", appId: "1:484222049869:web:d05828eb09c74a3d6cc604" };
 let fb = null, duel = store.get("duel", null), duelDocs = [], duelErr = "", duelUnsub = null, duelDraft = "", pendingRoom = null, mineSynced = false;
 const validRoom = (c) => typeof c === "string" && /^[a-z0-9]{16,40}$/.test(c);
-{ const m = location.hash.match(/(?:^#|&)d=([a-z0-9]+)/); if (m && validRoom(m[1])) pendingRoom = m[1]; }
+{ const m = location.hash.match(/(?:^#|&)d=([a-z0-9]+)/) || location.search.match(/[?&]d=([a-z0-9]+)/);
+  if (m && validRoom(m[1])) { pendingRoom = m[1]; store.set("pendingRoom", pendingRoom); }
+  else { const sv = store.get("pendingRoom", null); if (validRoom(sv)) pendingRoom = sv; } }
+function roomFromText(t) { t = String(t || "").toLowerCase(); const m = t.match(/[#?&]d=([a-z0-9]{16,40})/) || t.match(/(?:^|[^a-z0-9])([a-z0-9]{20})(?![a-z0-9])/); return m && validRoom(m[1]) ? m[1] : null; }
+const inviteUrl = (room) => location.href.split(/[?#]/)[0].replace(/index\.html$/, "") + "?d=" + room + "#d=" + room;
+const inviteText = (room) => `Rejoins mon duel de calcul mental !\nLien : ${inviteUrl(room)}\nSi le lien ne t'ouvre pas le duel, ouvre l'appli installée, touche « Coller » dans la carte Duel et colle ce code : ${room}`;
+let duelCodeDraft = "";
 function newId(n) { const a = "abcdefghijkmnopqrstuvwxyz23456789", r = new Uint8Array(n); crypto.getRandomValues(r); return Array.from(r, (x) => a[x % a.length]).join(""); }
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 async function loadFb() {
@@ -1397,8 +1404,8 @@ function syncMine() { const d = store.get("daily", {}); Object.keys(d).forEach((
 function joinDuel(room, name) {
   name = (name || "").trim().slice(0, 20); if (!name) return false;
   const pid = store.get("pid", null) || newId(10); store.set("pid", pid);
-  duel = { room, name, pid }; store.set("duel", duel); pendingRoom = null; duelDocs = []; duelErr = ""; mineSynced = false;
-  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  duel = { room, name, pid }; store.set("duel", duel); pendingRoom = null; store.set("pendingRoom", null); duelDocs = []; duelErr = ""; mineSynced = false;
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
   duelConnect(); renderDuel(); return true;
 }
 function duelModel() {
@@ -1450,15 +1457,23 @@ function wireDuelChart(m) {
 }
 function renderDuel() {
   const box = $("duelCard"); if (!box) return;
-  const inviteUrl = () => location.href.split(/[?#]/)[0].replace(/index\.html$/, "") + "#d=" + duel.room;
-  if (pendingRoom && (!duel || duel.room !== pendingRoom)) {
-    box.innerHTML = `<h2>Duel entre amis</h2><p class="level-desc" style="margin:0 0 10px">Un ami t'invite à comparer vos défis du jour.${duel ? " Tu quitteras ton duel actuel." : ""}</p>
-      <input class="field-inline" id="duelName" maxlength="20" placeholder="Ton pseudo" value="${esc(duelDraft)}" autocomplete="off"><button class="btn" data-a="join" type="button">Rejoindre le duel</button>`;
+  const play = $("tabPlay"), isInvite = !!pendingRoom && (!duel || duel.room !== pendingRoom);
+  if (isInvite) { if (play.firstElementChild !== box) play.prepend(box); }
+  else if (box.previousElementSibling !== $("dailyCard")) $("dailyCard").after(box);   // l'invitation passe tout en haut
+  box.classList.toggle("invite", isInvite);
+  if (isInvite) {
+    box.innerHTML = `<h2>Invitation à un duel</h2><p class="level-desc" style="margin:0 0 10px;color:var(--fg)">Un ami t'invite à comparer vos défis du jour.${duel ? " Tu quitteras ton duel actuel." : ""} Choisis ton pseudo pour le rejoindre.</p>
+      <input class="field-inline" id="duelName" maxlength="20" placeholder="Ton pseudo" value="${esc(duelDraft)}" autocomplete="off"><button class="btn" data-a="join" type="button">Rejoindre le duel</button>
+      <button class="link-btn" data-a="dismiss" type="button" style="margin-top:6px">Ce n'est pas pour moi</button>`;
     return;
   }
   if (!duel) {
     box.innerHTML = `<h2>Duel entre amis</h2><p class="level-desc" style="margin:0 0 10px">Joue le défi du jour avec un ami : quand vous avez tous les deux fini, l'appli compare vos scores et garde l'historique.</p>
-      <input class="field-inline" id="duelName" maxlength="20" placeholder="Ton pseudo" value="${esc(duelDraft)}" autocomplete="off"><button class="btn" data-a="create" type="button">Créer un duel</button>`;
+      <input class="field-inline" id="duelName" maxlength="20" placeholder="Ton pseudo" value="${esc(duelDraft)}" autocomplete="off"><button class="btn" data-a="create" type="button">Créer un duel</button>
+      <p class="sub">Un ami t'a invité ?</p>
+      <input class="field-inline" id="duelCode" placeholder="Colle ici le lien ou le code reçu" value="${esc(duelCodeDraft)}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div style="display:flex;gap:8px"><button class="btn secondary" data-a="paste" type="button" style="min-height:46px;font-size:15px">Coller</button><button class="btn secondary" data-a="joincode" type="button" style="min-height:46px;font-size:15px">Rejoindre</button></div>
+      <p class="warn" id="duelCodeErr" hidden></p>`;
     return;
   }
   const m = duelModel();
@@ -1467,23 +1482,40 @@ function renderDuel() {
   const who = (r) => r.win === "me" ? esc(m.names[m.me]) : r.win === "other" ? esc(m.names[m.other]) : "Égalité";
   box.innerHTML = `<h2>Duel · ${esc(duel.name)}${m.other ? " contre " + esc(m.names[m.other]) : ""} <button class="link-btn" data-a="leave" type="button">Quitter</button></h2>
     <p class="level-desc" style="margin:0 0 10px;color:var(--fg)">${status}</p>
-    ${m.other ? "" : `<button class="btn secondary" data-a="invite" type="button" style="min-height:46px;font-size:15px">Inviter un ami</button>`}
+    ${m.other ? "" : `<button class="btn secondary" data-a="invite" type="button" style="min-height:46px;font-size:15px">Inviter un ami</button><button class="link-btn" data-a="copycode" type="button" style="margin-top:6px">Copier juste le code</button>`}
     ${m.other && m.cmp.length ? `<div class="duelrow" style="margin:4px 0 6px"><span>Victoires</span><span class="num"><b>${esc(m.names[m.me])} ${m.wins.me}</b> · ${esc(m.names[m.other])} ${m.wins.other}${m.wins.draw ? " · égalités " + m.wins.draw : ""}</span></div>` : ""}
     ${m.other ? duelChart(m) : ""}
     ${m.cmp.length ? `<p class="sub">Historique des comparaisons</p><ul class="hist">${m.cmp.slice().reverse().slice(0, 8).map((r) => `<li><span>${fmtDay(r.day)} · <span class="w">${who(r)}</span></span><span class="num">${r.a.correct} – ${r.b.correct}</span></li>`).join("")}</ul>
       <details class="tbl"><summary>Voir les chiffres</summary><table><tr><th>Jour</th><th>${esc(m.names[m.me])}</th><th>${esc(m.names[m.other])}</th></tr>${m.cmp.slice().reverse().map((r) => `<tr><td>${fmtDay(r.day)}</td><td>${r.a.correct}/${r.a.total}</td><td>${r.b.correct}/${r.b.total}</td></tr>`).join("")}</table></details>` : ""}
     ${m.other ? `<button class="link-btn" data-a="invite" type="button" style="margin-top:10px">Réinviter / partager le lien du duel</button>` : ""}`;
-  box.dataset.invite = inviteUrl();
+  box.dataset.invite = inviteText(duel.room); box.dataset.room = duel.room;
   wireDuelChart(m);
   const rs = $("duelRes"); if (rs) rs.textContent = duelErr ? "" : duelToday(m, false);
 }
-$("duelCard").addEventListener("input", (e) => { if (e.target.id === "duelName") duelDraft = e.target.value; });
-$("duelCard").addEventListener("click", (e) => {
+$("duelCard").addEventListener("input", (e) => { if (e.target.id === "duelName") duelDraft = e.target.value; if (e.target.id === "duelCode") duelCodeDraft = e.target.value; });
+function duelCodeError(msg) { const el = $("duelCodeErr"); if (el) { el.textContent = msg; el.hidden = !msg; } }
+async function copyText(t, btn, done) { try { await navigator.clipboard.writeText(t); if (btn) { const o = btn.textContent; btn.textContent = done || "Copié !"; setTimeout(() => { btn.textContent = o; }, 1600); } } catch (e) { prompt("Copie ce texte :", t); } }
+function tryJoinFromCode() {
+  const room = roomFromText(($("duelCode") || {}).value), name = ($("duelName") || {}).value;
+  if (!room) return duelCodeError("Je ne trouve pas de code d'invitation dans ce texte. Colle le message complet de ton ami, ou son code de 20 caractères.");
+  if (!(name || "").trim()) { duelCodeError("Code reconnu. Choisis d'abord ton pseudo, puis touche Rejoindre."); const n = $("duelName"); if (n) n.focus(); return; }
+  duelCodeDraft = ""; joinDuel(room, name);
+}
+$("duelCard").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-a]"); if (!b) return;
   const a = b.dataset.a, name = ($("duelName") || {}).value;
   if (a === "create") { if (!joinDuel(newId(20), name)) $("duelName").focus(); }
   else if (a === "join") { if (!joinDuel(pendingRoom, name)) $("duelName").focus(); }
-  else if (a === "invite") shareResult("Rejoins mon duel de calcul mental : " + $("duelCard").dataset.invite, b);
+  else if (a === "dismiss") { pendingRoom = null; store.set("pendingRoom", null); try { history.replaceState(null, "", location.pathname); } catch (er) {} renderDuel(); }
+  else if (a === "paste") {
+    let t = ""; try { t = await navigator.clipboard.readText(); } catch (er) { t = prompt("Colle ici le lien ou le code reçu :") || ""; }
+    if (!t) return;
+    const c = $("duelCode"); if (c) { c.value = t; duelCodeDraft = t; }
+    tryJoinFromCode();
+  }
+  else if (a === "joincode") tryJoinFromCode();
+  else if (a === "invite") shareResult($("duelCard").dataset.invite, b);
+  else if (a === "copycode") copyText($("duelCard").dataset.room, b, "Code copié !");
   else if (a === "leave") { if (confirm("Quitter ce duel ? Tes résultats déjà envoyés restent visibles pour ton ami.")) { if (duelUnsub) duelUnsub(); duelUnsub = null; duel = null; duelDocs = []; store.set("duel", null); renderDuel(); } }
 });
 window.addEventListener("online", () => { if (duel) duelConnect(); });
@@ -1802,8 +1834,9 @@ function renderGate() {
   }
   const direct = deferredInstall ? `<button class="btn" id="gateInstall" type="button" style="margin-bottom:12px">Installer l'application</button>` : "";
   let inv = "";
-  if (pendingRoom) inv = `<p class="gate-note" style="margin:0 0 12px">Tu as été invité à un duel : installe d'abord l'appli, puis rouvre le lien d'invitation depuis l'appli installée.</p>`;
+  if (pendingRoom) inv = `<section class="gate-card"><h2>Ton invitation au duel</h2><p style="margin:0 0 10px">Garde ce code : <b>après l'installation</b>, ouvre l'appli depuis son icône et touche <b>Coller</b> dans la carte « Duel entre amis ». Pour ne pas le perdre, copie-le maintenant.</p><pre class="sharetext" style="margin:0 0 10px">${pendingRoom}</pre><button class="btn secondary" id="gateCopyInvite" type="button" style="min-height:46px;font-size:15px">Copier l'invitation</button></section>`;
   body.innerHTML = `${intro}${direct}<section class="gate-card"><h2>${P.ios ? "Sur iPhone / iPad" : P.android ? "Sur Android" : "Sur ordinateur"} : 4 étapes</h2><ol class="steps">${steps.map((x) => `<li><span>${x}</span></li>`).join("")}</ol>${extra}</section>${inv}${P.inApp || P.iosOther || P.firefox ? copyBtn : ""}`;
+  { const ci = $("gateCopyInvite"); if (ci) ci.onclick = () => copyText(inviteText(pendingRoom), ci, "Invitation copiée !"); }
   $("gateStatus").textContent = "L'appli est ouverte dans un navigateur : elle se débloquera d'elle-même quand tu l'ouvriras depuis l'icône installée.";
   const ib = $("gateInstall"); if (ib) ib.onclick = async () => { try { deferredInstall.prompt(); const r = await deferredInstall.userChoice; if (r && r.outcome === "accepted") { justInstalled = true; } deferredInstall = null; } catch (e) {} renderGate(); };
   const cb = $("gateCopy"); if (cb) cb.onclick = async () => { const u = location.href.split(/[?#]/)[0]; try { await navigator.clipboard.writeText(u); cb.textContent = "Lien copié !"; } catch (e) { prompt("Copie ce lien :", u); } };
