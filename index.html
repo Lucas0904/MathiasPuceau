@@ -1383,7 +1383,7 @@ async function duelConnect() {
     const { db, fs } = await loadFb();
     if (duelUnsub) duelUnsub();
     duelUnsub = fs.onSnapshot(fs.collection(db, "duels", duel.room, "results"),
-      (snap) => { duelDocs = snap.docs.map((d) => d.data()); duelErr = ""; if (!mineSynced) { mineSynced = true; syncMine(); } renderDuel(); },
+      (snap) => { duelDocs = snap.docs.map((d) => d.data()); duelErr = ""; if (!mineSynced) { mineSynced = true; syncMine(); } announceMe(); renderDuel(); },
       (err) => { duelErr = err && err.code === "permission-denied" ? "rules" : "net"; renderDuel(); });
   } catch (e) { duelErr = "net"; renderDuel(); }
 }
@@ -1394,6 +1394,8 @@ async function pushDuel(day, e) {
     await fs.setDoc(fs.doc(db, "duels", duel.room, "results", `${day}_${duel.pid}`), { day, pid: duel.pid, name: duel.name, correct: e.correct, total: e.total, ms: Math.round(e.ms), at: Date.now() });
   } catch (err) { /* déjà envoyé, ou pas de réseau : la file hors ligne s'en charge */ }
 }
+const PRESENCE_DAY = "0000-00-00";   // document « je suis dans ce duel » : visible par l'autre joueur avant son premier défi
+function announceMe() { if (duel && !duelDocs.some((r) => r.day === PRESENCE_DAY && r.pid === duel.pid)) pushDuel(PRESENCE_DAY, { correct: 0, total: 0, ms: 0 }); }
 function syncMine() { const d = store.get("daily", {}); Object.keys(d).forEach((day) => { if (!duelDocs.some((r) => r.day === day && r.pid === duel.pid)) pushDuel(day, d[day]); }); }
 function joinDuel(room, name) {
   name = (name || "").trim().slice(0, 20); if (!name) return false;
@@ -1404,7 +1406,7 @@ function joinDuel(room, name) {
 }
 function duelModel() {
   const me = duel.pid, by = {}, names = { [me]: duel.name }, order = [me];
-  duelDocs.slice().sort((a, b) => a.at - b.at).forEach((r) => { (by[r.day] = by[r.day] || {})[r.pid] = r; if (!names[r.pid] || r.pid !== me) names[r.pid] = r.name; if (!order.includes(r.pid)) order.push(r.pid); });
+  duelDocs.slice().sort((a, b) => a.at - b.at).forEach((r) => { if (r.day !== PRESENCE_DAY) (by[r.day] = by[r.day] || {})[r.pid] = r; if (!names[r.pid] || r.pid !== me) names[r.pid] = r.name; if (!order.includes(r.pid)) order.push(r.pid); });
   const other = order[1] || null, days = Object.keys(by).sort();
   const cmp = days.filter((d) => other && by[d][me] && by[d][other]).map((d) => {
     const a = by[d][me], b = by[d][other], diff = a.correct - b.correct;
@@ -1420,6 +1422,7 @@ function duelToday(m, short) {
   }
   if (mine) return `Ton score est envoyé. La comparaison apparaîtra dès que ${esc(on)} aura fini son défi.`;
   if (theirs) return short ? "" : `${esc(on)} a déjà fini son défi. À toi de jouer !`;
+  if (m.other && !short) return `${esc(on)} a rejoint le duel. Jouez chacun le défi du jour : la comparaison s'affiche quand vous avez tous les deux fini.`;
   return short ? "" : "Joue le défi du jour : la comparaison se lance quand vous avez tous les deux fini.";
 }
 function duelChart(m) {
@@ -1483,6 +1486,8 @@ function renderDuel() {
       <details class="tbl"><summary>Voir les chiffres</summary><table><tr><th>Jour</th><th>${esc(m.names[m.me])}</th><th>${esc(m.names[m.other])}</th></tr>${m.cmp.slice().reverse().map((r) => `<tr><td>${fmtDay(r.day)}</td><td>${r.a.correct}/${r.a.total}</td><td>${r.b.correct}/${r.b.total}</td></tr>`).join("")}</table></details>` : ""}
     ${m.other ? `<button class="link-btn" data-a="invite" type="button" style="margin-top:10px">Réinviter / partager le lien du duel</button>` : ""}`;
   box.dataset.invite = inviteText(duel.room); box.dataset.room = duel.room;
+  { const n = new Set([duel.pid, ...duelDocs.map((r) => r.pid)]).size, st = duelErr === "rules" ? "accès refusé par la base" : duelErr === "net" ? "hors connexion" : "connecté";
+    box.insertAdjacentHTML("beforeend", `<p class="gate-note" style="margin-top:12px">Duel n° <b>${duel.room.slice(0, 4).toUpperCase()}</b> · ${n} joueur${n > 1 ? "s" : ""} · ${st}. Le numéro doit être le même chez ton ami.</p>`); }
   wireDuelChart(m);
   const rs = $("duelRes"); if (rs) rs.textContent = duelErr ? "" : duelToday(m, false);
 }
