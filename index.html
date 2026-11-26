@@ -1513,6 +1513,9 @@ $("duelCard").addEventListener("click", async (e) => {
   else if (a === "leave") { if (confirm("Quitter ce duel ? Tes résultats déjà envoyés restent visibles pour ton ami.")) { if (duelUnsub) duelUnsub(); duelUnsub = null; duel = null; duelDocs = []; store.set("duel", null); renderDuel(); } }
 });
 window.addEventListener("online", () => { if (duel) duelConnect(); });
+// Après un refus de la base (règles pas encore publiées) ou une coupure, on réessaie tout seul
+setInterval(() => { if (duel && duelErr && navigator.onLine) duelConnect(); }, 20000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && duel && duelErr) duelConnect(); });
 
 /* ---------- Sons (synthétisés, aucun fichier) ---------- */
 const sfx = {
