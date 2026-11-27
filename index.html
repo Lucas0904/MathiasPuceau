@@ -171,10 +171,13 @@ details.tbl td:first-child, details.tbl th:first-child { text-align: left; }
 .answer.empty::after { content: "…"; color: var(--muted); font-weight: 400; }
 .answer.ok { border-color: var(--ok); background: var(--ok-soft); }
 .answer.bad { border-color: var(--bad); background: var(--bad-soft); text-decoration: line-through; text-decoration-thickness: 2px; }
-.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.pad button { min-height: 58px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.pad button:active { background: var(--accent-soft); }
-.pad .go { grid-column: 1 / -1; background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-size: 18px; font-weight: 700; }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; touch-action: none; }
+.pad button { position: relative; isolation: isolate; min-height: 66px; border: 0; border-radius: 0; background: transparent; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; touch-action: none; }
+.pad button::before { content: ""; position: absolute; inset: 4px; z-index: -1; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.pad button:active::before, .pad button.down::before { background: var(--accent-soft); }
+.pad .go { grid-column: 1 / -1; color: var(--accent-fg); font-size: 18px; font-weight: 700; }
+.pad .go::before { background: var(--accent); box-shadow: none; }
+.pad .go:active::before, .pad .go.down::before { background: var(--accent); filter: brightness(.88); }
 .pad.pickmode button:not(.go) { display: none; }
 .pickq { font-family: var(--font-body); font-size: 16px; width: 100%; }
 .picks { display: grid; gap: 6px; width: 100%; }
@@ -765,8 +768,6 @@ const GEN = {
       { c: "Vitesse", lo: 3, hi: 4, f: () => { const m = pick([.6, .7, .75, .78, .8, .82, .85]), ru = m * 570; return Q(`Mach ${F(m)} en altitude`, "kt", m * 573, `En altitude, la vitesse du son ≈ 570 kt. ${F(m)} × 570 = ${F(Math.round(ru))}.`, { rule: ru }); } },
       /* ----- Température (réponses toujours positives) ----- */
       { c: "Température", lo: 0, hi: 1, f: () => { const c = rnd(0, 40); return Q(`${c} °C`, "K", c + 273.15, `On ajoute 273 : ${c} + 273 = ${c + 273}.`, { rule: c + 273, ta: 1 }); } },
-      { c: "Température", lo: 1, hi: 3, f: () => { const c = 5 * rnd(0, 24), f = c * 1.8 + 32; return Q(`${c} °C`, "°F", f, `× 1,8 puis + 32 : ${c} × 2 = ${c * 2}, moins 10 % (${F(c * .2)}) = ${F(c * 1.8)}, + 32 = ${F(f)}.`, { rule: f, ta: 1 }); } },
-      { c: "Température", lo: 1, hi: 3, f: () => { const c = 5 * rnd(0, 24), f = c * 1.8 + 32, ru = (f - 32) / 2 * 1.1; return Q(`${f} °F`, "°C", c, `On retire 32 : ${f} − 32 = ${f - 32}. Puis ÷ 1,8 : la moitié (${F((f - 32) / 2)}), plus 10 % = ${F(r1(ru))}.`, { rule: ru, ta: 1 }); } },
       { c: "Température", lo: 2, hi: 4, f: () => { const h = 1000 * rnd(1, 7), isa = 15 - 2 * h / 1000; return Q(`Température ISA à ${F(h)} ft`, "°C", isa, `ISA : 15 °C au niveau de la mer, moins 2 °C par 1000 ft. 15 − 2 × ${h / 1000} = ${isa}.`, { exact: true }); } },
       { c: "Température", lo: 3, hi: 4, f: () => { const h = 1000 * rnd(1, 8), isa = 15 - 2 * h / 1000, dev = rnd(2, 22), T = isa + dev; return Q(`${T} °C à ${F(h)} ft : écart avec l'ISA`, "°C", dev, `ISA à ${F(h)} ft = 15 − 2 × ${h / 1000} = ${isa} °C. Écart : ${T} − ${isa} = ${dev}.`, { exact: true }); } },
       /* ----- Temps ----- */
@@ -1209,7 +1210,7 @@ function hideCorrection() {
 
 /* ---------- Drapeau : banque de questions à retravailler ---------- */
 const flagKey = (q) => q.op + "|" + String(q.html);
-const loadFlags = () => { const f = store.get("flags", []); return Array.isArray(f) ? f : []; };
+const loadFlags = () => { const f = store.get("flags", []); return Array.isArray(f) ? f.filter((x) => !/°F/.test(String(x.html))) : []; };   // les anciennes questions en °F ne reviennent plus
 function isFlagged(q) { return !!q && loadFlags().some((f) => f.key === flagKey(q)); }
 function updateFlagBtn() {
   const b = $("flagBtn"), on = !!(G && G.q) && isFlagged(G.q);
@@ -1598,7 +1599,7 @@ function nextQuestion() {
   }
   if (q.why) q.why = q.why.replace(/\b\d{5,}\b/g, (m) => m.replace(/\B(?=(\d{3})+(?!\d))/g, "\u202F"));
   q.op = op; q.ans = q.pick ? q.ans : round4(q.ans); q.t0 = performance.now();
-  G.q = q; G.last = q.html; G.input = ""; G.waiting = false; G.sel = new Set(); G.none = false;
+  G.q = q; G.last = q.html; G.input = ""; G.waiting = false; G.flash = false; G.sel = new Set(); G.none = false;
   $("answer").hidden = !!q.pick;
   $("pad").classList.toggle("pickmode", !!q.pick);
   $("question").classList.toggle("pickq", !!q.pick);
@@ -1629,7 +1630,10 @@ function renderAnswer(state) {
 function parseInput(s) { if (!s || s === ",") return NaN; return Number(s.replace(",", ".")); }
 function press(k) {
   if (!G) return;
-  if (G.waiting) { if (k === "ok") afterAnswer(); return; }
+  if (G.waiting) {
+    if (G.flash) { afterAnswer(); if (!G || k === "ok") return; }   // bonne réponse : on enchaîne tout de suite et la touche compte pour la question suivante
+    else { if (k === "ok") afterAnswer(); return; }
+  }
   if (G.q.pick) {
     if (k === "ok") submitPick();
     else if (k === "0") toggleNone();
@@ -1665,7 +1669,7 @@ function submitPick() {
     if (q.items[i].bad) b.classList.add("isfalse"); else if (G.sel.has(i)) b.classList.add("wrong");
   });
   { const nb = $("question").querySelector("button[data-none]"); if (nb) { nb.disabled = true; nb.classList.add("reveal"); if (!q.ans.length) nb.classList.add("right"); else if (G.none) nb.classList.add("wrong"); } }
-  G.waiting = true;
+  G.waiting = true; G.flash = ok;
   if (ok) { G.correct++; sfx.ok(); setTimeout(() => { if (G && G.waiting) afterAnswer(); }, 700); }
   else {
     $("go").textContent = "Suivant";
@@ -1681,7 +1685,7 @@ function submit() {
     G.correct++;
     sfx.ok();
     renderAnswer("ok");
-    G.waiting = true;
+    G.flash = true; G.waiting = true;
     setTimeout(() => { if (G && G.waiting) afterAnswer(); }, 220);
   } else {
     renderAnswer("bad");
@@ -1767,7 +1771,13 @@ $("again").onclick = () => startGame();
 $("menu").onclick = () => { show("home"); renderHome(); };
 $("quit").onclick = () => { if (G && G.daily && !confirm("Abandonner le défi ? Ton score du jour sera enregistré tel quel, sans seconde chance.")) return; endGame(); };
 $("question").addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) return togglePick(+b.dataset.i); if (e.target.closest("button[data-none]")) toggleNone(); });
-$("pad").addEventListener("click", (e) => { const b = e.target.closest("button[data-k]"); if (b) press(b.dataset.k); });
+$("pad").addEventListener("pointerdown", (e) => {
+  const b = e.target.closest("button[data-k]"); if (!b) return;
+  e.preventDefault(); b.classList.add("down"); setTimeout(() => b.classList.remove("down"), 110);
+  press(b.dataset.k);
+});
+// le clic du clavier (Entrée, Espace) ou d'un lecteur d'écran n'a pas de contact : detail = 0
+$("pad").addEventListener("click", (e) => { const b = e.target.closest("button[data-k]"); if (b && e.detail === 0) press(b.dataset.k); });
 document.addEventListener("keydown", (e) => {
   if (!G) { if (e.key === "Enter" && !$("results").hidden) startGame(); return; }
   if (/^[0-9]$/.test(e.key)) press(e.key);
